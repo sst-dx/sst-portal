@@ -4276,37 +4276,46 @@ function LoginPage({onLogin}){
   };
 
   return(
-    <div style={{minHeight:'100vh',background:'linear-gradient(135deg,#0f2a5c 0%,#1e4db7 100%)',display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
-      <div style={{background:'#fff',borderRadius:16,padding:'40px 36px',width:'100%',maxWidth:400,boxShadow:'0 20px 60px rgba(9,29,66,0.4)'}}>
+    <div style={{minHeight:'100vh',background:'linear-gradient(160deg,#0a1e4a 0%,#0f2a5c 45%,#1a3a7a 100%)',display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
+      <div style={{width:'100%',maxWidth:420,display:'flex',flexDirection:'column',alignItems:'center',gap:0}}>
+        {/* ロゴエリア */}
         <div style={{textAlign:'center',marginBottom:32}}>
-          <div style={{fontSize:32,marginBottom:8}}>🏕️</div>
-          <div style={{fontSize:20,fontWeight:900,color:'#0f2a5c'}}>砂辺松福テント</div>
-          <div style={{fontSize:13,color:'#52637a',marginTop:4}}>社内ポータル</div>
+          <img src={LOGO_IMG} alt="砂辺松福テント株式会社" style={{height:80,objectFit:'contain',filter:'brightness(0) invert(1)',marginBottom:16}}/>
+          <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:10}}>
+            <div style={{height:1,width:32,background:'rgba(255,255,255,0.3)'}}/>
+            <div style={{fontSize:11,color:'rgba(255,255,255,0.6)',letterSpacing:'0.12em',fontWeight:500}}>砂辺松福テント 業務管理システム</div>
+            <div style={{height:1,width:32,background:'rgba(255,255,255,0.3)'}}/>
+          </div>
         </div>
-        <form onSubmit={handleLogin}>
-          <div style={{marginBottom:16}}>
-            <div style={{fontSize:12,fontWeight:700,color:'#52637a',marginBottom:6}}>メールアドレス</div>
-            <input
-              type="email" value={email} onChange={e=>setEmail(e.target.value)}
-              placeholder="example@sst.co.jp" required
-              style={{width:'100%',padding:'10px 14px',border:'1.5px solid #dde3ef',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box'}}
-            />
-          </div>
-          <div style={{marginBottom:24}}>
-            <div style={{fontSize:12,fontWeight:700,color:'#52637a',marginBottom:6}}>パスワード</div>
-            <input
-              type="password" value={password} onChange={e=>setPassword(e.target.value)}
-              placeholder="パスワード" required
-              style={{width:'100%',padding:'10px 14px',border:'1.5px solid #dde3ef',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box'}}
-            />
-          </div>
-          {error&&<div style={{background:'#fdecea',border:'1px solid #f5a9a3',borderRadius:6,padding:'8px 12px',fontSize:12,color:'#c0392b',marginBottom:16}}>{error}</div>}
-          <button type="submit" disabled={loading} style={{
-            width:'100%',padding:'12px',background:'#0f2a5c',color:'#fff',
-            border:'none',borderRadius:8,fontSize:14,fontWeight:700,cursor:loading?'default':'pointer',
-            opacity:loading?0.7:1,
-          }}>{loading?'ログイン中…':'ログイン'}</button>
-        </form>
+        {/* ログインカード */}
+        <div style={{background:'rgba(255,255,255,0.97)',borderRadius:16,padding:'36px 32px',width:'100%',boxShadow:'0 24px 64px rgba(0,0,0,0.35)',backdropFilter:'blur(10px)'}}>
+          <div style={{fontSize:16,fontWeight:800,color:'#0f2a5c',marginBottom:24,textAlign:'center',letterSpacing:'0.04em'}}>ログイン</div>
+          <form onSubmit={handleLogin}>
+            <div style={{marginBottom:16}}>
+              <div style={{fontSize:11,fontWeight:700,color:'#52637a',marginBottom:6,letterSpacing:'0.06em'}}>メールアドレス</div>
+              <input
+                type="email" value={email} onChange={e=>setEmail(e.target.value)}
+                placeholder="example@sst.co.jp" required
+                style={{width:'100%',padding:'11px 14px',border:'1.5px solid #dde3ef',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box',transition:'border-color 0.2s'}}
+              />
+            </div>
+            <div style={{marginBottom:24}}>
+              <div style={{fontSize:11,fontWeight:700,color:'#52637a',marginBottom:6,letterSpacing:'0.06em'}}>パスワード</div>
+              <input
+                type="password" value={password} onChange={e=>setPassword(e.target.value)}
+                placeholder="パスワード" required
+                style={{width:'100%',padding:'11px 14px',border:'1.5px solid #dde3ef',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box'}}
+              />
+            </div>
+            {error&&<div style={{background:'#fdecea',border:'1px solid #f5a9a3',borderRadius:6,padding:'8px 12px',fontSize:12,color:'#c0392b',marginBottom:16}}>{error}</div>}
+            <button type="submit" disabled={loading} style={{
+              width:'100%',padding:'13px',background:'linear-gradient(135deg,#0f2a5c,#1e4db7)',color:'#fff',
+              border:'none',borderRadius:8,fontSize:14,fontWeight:700,cursor:loading?'default':'pointer',
+              opacity:loading?0.7:1,letterSpacing:'0.06em',boxShadow:'0 4px 16px rgba(15,42,92,0.35)',
+            }}>{loading?'ログイン中…':'ログイン'}</button>
+          </form>
+        </div>
+        <div style={{marginTop:20,fontSize:11,color:'rgba(255,255,255,0.35)',letterSpacing:'0.06em'}}>© 砂辺松福テント株式会社</div>
       </div>
     </div>
   );
