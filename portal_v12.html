@@ -10,6 +10,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.39.7/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;600;700;900&display=swap');
 *{box-sizing:border-box;margin:0;padding:0;}
@@ -1120,6 +1122,7 @@ function PrintModal({onClose, children, docType, onToggleDoc, onIssue}){
   const [printScale, setPrintScale] = React.useState(100);
   const [issued, setIssued] = React.useState(false);
   const [issuing, setIssuing] = React.useState(false);
+  const printAreaRef = React.useRef(null);
 
   // ブラウザの戻るボタンでモーダルを閉じる
   const closedByBack = React.useRef(false);
@@ -1139,10 +1142,34 @@ function PrintModal({onClose, children, docType, onToggleDoc, onIssue}){
     };
   }, []);
 
+  const generatePdfBlob = async ()=>{
+    const el = printAreaRef.current;
+    if(!el) return null;
+    try{
+      const canvas = await html2canvas(el, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff',
+      });
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
+      const pdfW = pdf.internal.pageSize.getWidth();
+      const pdfH = (canvas.height * pdfW) / canvas.width;
+      pdf.addImage(imgData, 'JPEG', 0, 0, pdfW, pdfH);
+      return pdf.output('blob');
+    }catch(e){
+      console.error('PDF生成エラー:', e);
+      return null;
+    }
+  };
+
   const handleIssue = async ()=>{
     if(!onIssue) return;
     setIssuing(true);
-    const ok = await onIssue();
+    const pdfBlob = await generatePdfBlob();
+    const ok = await onIssue(pdfBlob);
     setIssuing(false);
     if(ok) setIssued(true);
   };
@@ -1233,7 +1260,7 @@ function PrintModal({onClose, children, docType, onToggleDoc, onIssue}){
           boxShadow:'0 8px 40px rgba(9,29,66,0.25)',
           padding:'6mm 8mm',height:'fit-content',
         }}>
-          <div className="bill-sheet" style={{fontFamily:"'Noto Sans JP','Hiragino Kaku Gothic ProN',sans-serif",color:'#000',fontSize:`${printScale}%`}}>
+          <div ref={printAreaRef} className="bill-sheet" style={{fontFamily:"'Noto Sans JP','Hiragino Kaku Gothic ProN',sans-serif",color:'#000',fontSize:`${printScale}%`}}>
             {children}
           </div>
         </div>
@@ -2348,9 +2375,10 @@ function QuotePage({addActivity, user}){
           onClose={()=>setShowPdf(false)}
           docType={docType}
           onToggleDoc={()=>setDocType(t=>t==='estimate'?'invoice':'estimate')}
-          onIssue={async ()=>{
+          onIssue={async (pdfBlob)=>{
             const {data:{user:u}} = await supabase.auth.getUser();
-            const {error} = await supabase.from('documents').insert({
+            // まずドキュメント情報をInsert
+            const {data:inserted, error} = await supabase.from('documents').insert({
               doc_type: docType,
               created_by: u?.id||null,
               created_by_name: u?.user_metadata?.display_name || u?.email || staff || '不明',
@@ -2359,8 +2387,19 @@ function QuotePage({addActivity, user}){
               total_amount: total,
               date_str: dateStr || new Date().toISOString().slice(0,10),
               items: cart.map(it=>({name:it.name, qty:it.qty, cat:it.cat})),
-            });
+            }).select('id').single();
             if(error){ alert('保存エラー: '+error.message); return false; }
+            // PDFをStorageにアップロード
+            if(pdfBlob && inserted?.id){
+              const fileName = `${inserted.id}.pdf`;
+              const { error: upErr } = await supabase.storage
+                .from('documents')
+                .upload(fileName, pdfBlob, { contentType:'application/pdf', upsert:true });
+              if(!upErr){
+                const { data: urlData } = supabase.storage.from('documents').getPublicUrl(fileName);
+                await supabase.from('documents').update({ pdf_url: urlData?.publicUrl }).eq('id', inserted.id);
+              }
+            }
             return true;
           }}
         >
@@ -3339,9 +3378,9 @@ function FabricPage(){
       <PrintModal
         onClose={()=>setShowFabricPdf(false)}
         docType="estimate"
-        onIssue={async ()=>{
+        onIssue={async (pdfBlob)=>{
           const {data:{user:u}} = await supabase.auth.getUser();
-          const {error} = await supabase.from('documents').insert({
+          const {data:inserted, error} = await supabase.from('documents').insert({
             doc_type: 'fabric_estimate',
             created_by: u?.id||null,
             created_by_name: u?.user_metadata?.display_name || u?.email || '不明',
@@ -3350,8 +3389,18 @@ function FabricPage(){
             total_amount: cartTotal,
             date_str: new Date().toISOString().slice(0,10),
             items: cart.map(r=>({name:r.label||r.itemName||'生地', qty:r.fabricQty||1, cat:'fabric'})),
-          });
+          }).select('id').single();
           if(error){ alert('保存エラー: '+error.message); return false; }
+          if(pdfBlob && inserted?.id){
+            const fileName = `${inserted.id}.pdf`;
+            const { error: upErr } = await supabase.storage
+              .from('documents')
+              .upload(fileName, pdfBlob, { contentType:'application/pdf', upsert:true });
+            if(!upErr){
+              const { data: urlData } = supabase.storage.from('documents').getPublicUrl(fileName);
+              await supabase.from('documents').update({ pdf_url: urlData?.publicUrl }).eq('id', inserted.id);
+            }
+          }
           return true;
         }}
       >
@@ -4993,8 +5042,14 @@ function DocDetailModal({doc, onClose, onSaved}){
         </div>
 
         {/* フッター */}
-        <div style={{padding:'12px 20px',borderTop:'1px solid var(--border)',display:'flex',gap:10,flexShrink:0}}>
+        <div style={{padding:'12px 20px',borderTop:'1px solid var(--border)',display:'flex',gap:10,flexShrink:0,flexWrap:'wrap'}}>
           <button onClick={onClose} style={{padding:'8px 20px',border:'1px solid var(--border)',borderRadius:7,background:'#fff',fontSize:13,cursor:'pointer',color:'var(--text-sub)',fontWeight:600}}>閉じる</button>
+          {doc.pdf_url&&(
+            <a href={doc.pdf_url} target="_blank" rel="noopener noreferrer"
+              style={{padding:'8px 20px',border:'1.5px solid #1e4db7',borderRadius:7,background:'#e8eef8',color:'#1e4db7',fontSize:13,fontWeight:700,cursor:'pointer',textDecoration:'none',display:'flex',alignItems:'center',gap:6}}>
+              📄 PDF開く
+            </a>
+          )}
           <button onClick={handleSave} disabled={saving}
             style={{padding:'8px 24px',border:'none',borderRadius:7,background:saved?'var(--green)':C.navy,color:'#fff',fontSize:13,fontWeight:700,cursor:'pointer',marginLeft:'auto',transition:'background 0.2s'}}>
             {saving?'保存中…':saved?'✓ 保存しました':'変更を保存'}
