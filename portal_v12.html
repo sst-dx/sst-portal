@@ -923,10 +923,11 @@ function HankoSeal(){
   return <img src={HANKO_IMG} alt="社印" style={{width:78,height:78,objectFit:'contain',flexShrink:0}}/>;
 }
 
-function BillHead({ title, dateLabel, quoteDate, subject, addressee }){
+function BillHead({ title, dateLabel, subjectLabel, quoteDate, subject, addressee }){
   const fmtD=(d)=>{ if(!d) return ''; const[y,m,dd]=d.split('-'); return `${y}/${m}/${dd}`; };
   const displayTitle = title || '御見積書';
-  const displayDateLabel = dateLabel || '見積日';
+  const displayDateLabel = dateLabel || '見積作成日';
+  const displaySubjectLabel = subjectLabel || '件　名';
   return(
     <div style={{display:'flex',alignItems:'stretch',marginBottom:12}}>
 
@@ -935,7 +936,7 @@ function BillHead({ title, dateLabel, quoteDate, subject, addressee }){
         <div style={{fontSize:20,color:'#000'}}>
           {[
             [displayDateLabel, fmtD(quoteDate)],
-            ['件　名', subject],
+            [displaySubjectLabel, subject],
             ['宛　名', addressee],
           ].map(([k,v])=>(
             <div key={k} style={{display:'flex',gap:10,alignItems:'flex-end',marginBottom:7,borderBottom:'1.5px solid #000',paddingBottom:4}}>
@@ -1128,6 +1129,24 @@ function PrintModal({onClose, children, docType, onToggleDoc, onIssue}){
   const [printScale, setPrintScale] = React.useState(100);
   const [issued, setIssued] = React.useState(false);
   const [issuing, setIssuing] = React.useState(false);
+
+  // ブラウザの戻るボタンでモーダルを閉じる
+  const closedByBack = React.useRef(false);
+  React.useEffect(()=>{
+    history.pushState({printModal:true}, '');
+    const handlePop = ()=>{
+      closedByBack.current = true;
+      onClose();
+    };
+    window.addEventListener('popstate', handlePop);
+    return ()=>{
+      window.removeEventListener('popstate', handlePop);
+      // 「閉じる」ボタンなど戻るボタン以外で閉じた場合は履歴エントリを除去
+      if(!closedByBack.current && history.state && history.state.printModal){
+        history.back();
+      }
+    };
+  }, []);
 
   const handleIssue = async ()=>{
     if(!onIssue) return;
@@ -1363,7 +1382,7 @@ function LeasePrintContent({ data }){
 
   return(
     <>
-      <BillHead title={docType==='invoice'?'請求書':'御見積書'} dateLabel={docType==='invoice'?'請求日':'見積日'} quoteDate={quoteDate||dateStr} subject={projectName||'リース商品お見積もり'} addressee={withHonorific(customerName,customerHonorific)}/>
+      <BillHead title={docType==='invoice'?'請求書':'御見積書'} dateLabel={docType==='invoice'?'請求日':'見積作成日'} subjectLabel="現場名" quoteDate={quoteDate||dateStr} subject={projectName||'リース商品お見積もり'} addressee={withHonorific(customerName,customerHonorific)}/>
       <BillTotalBox taxIncl={total} taxExcl={sub} tax={tax} docType={docType}/>
       <BillSectionTitle>ご提案内容</BillSectionTitle>
       <BillSpecTable rows={[
