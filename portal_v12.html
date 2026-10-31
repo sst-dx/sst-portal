@@ -3321,7 +3321,25 @@ function FabricPage(){
   return(
     <div>
     {showFabricPdf&&cart.length>0&&(
-      <PrintModal onClose={()=>setShowFabricPdf(false)}>
+      <PrintModal
+        onClose={()=>setShowFabricPdf(false)}
+        docType="estimate"
+        onIssue={async ()=>{
+          const {data:{user:u}} = await supabase.auth.getUser();
+          const {error} = await supabase.from('documents').insert({
+            doc_type: 'fabric_estimate',
+            created_by: u?.id||null,
+            created_by_name: u?.user_metadata?.display_name || u?.email || '不明',
+            customer_name: fabCustomer||'',
+            project_name: fabSubject||'',
+            total_amount: cartTotal,
+            date_str: new Date().toISOString().slice(0,10),
+            items: cart.map(r=>({name:r.label||r.itemName||'生地', qty:r.fabricQty||1, cat:'fabric'})),
+          });
+          if(error){ alert('保存エラー: '+error.message); return false; }
+          return true;
+        }}
+      >
         <FabricPrintContent results={cart} extraItems={extraItems} adjust={fabAdj} customer={fabCustomer} subject={fabSubject} honorific={fabHonorific}/>
       </PrintModal>
     )}
