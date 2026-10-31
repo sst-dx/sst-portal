@@ -149,6 +149,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)!im
 const SUPABASE_URL = 'https://wnqattkapqirjscjwtat.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InducWF0dGthcHFpcmpzY2p3dGF0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTMzNjAwODYsImV4cCI6MjEwODkzNjA4Nn0.umR-g1G_wahv8SniNYTj9IKY_zgEcm8zxiVVWyteCxM';
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+window._supabaseClient = supabase;
 
 const C = {
   navy:'#0f2a5c',navyDark:'#091d42',navyLight:'#1a3a72',navyMid:'#1e4db7',
@@ -1820,34 +1821,38 @@ function TeamMemo({user}){
   const displayName=user?(user.user_metadata?.display_name||user.email||'不明'):'不明';
 
   React.useEffect(()=>{
-    if(!window.supabase)return;
+    if(!window._supabaseClient)return;
+    const sb=window._supabaseClient;
     const fetch=async()=>{
       setLoading(true);
-      const {data}=await window.supabase.from('team_memos').select('*').order('created_at',{ascending:false}).limit(30);
+      const {data}=await sb.from('team_memos').select('*').order('created_at',{ascending:false}).limit(30);
       if(data)setMemos(data);
       setLoading(false);
     };
     fetch();
-    const sub=window.supabase.channel('team_memos_ch')
-      .on('postgres_changes',{event:'*',schema:'public',table:'team_memos'},()=>fetch())
-      .subscribe();
-    return()=>sub.unsubscribe();
+    let sub;
+    try{
+      sub=sb.channel('team_memos_ch')
+        .on('postgres_changes',{event:'*',schema:'public',table:'team_memos'},()=>fetch())
+        .subscribe();
+    }catch(e){console.warn('realtime not available',e);}
+    return()=>{try{sub&&sub.unsubscribe();}catch{}};
   },[]);
 
   const add=async()=>{
-    const t=input.trim();if(!t||!user)return;
-    const{error}=await window.supabase.from('team_memos').insert({
+    const t=input.trim();if(!t||!user||!window._supabaseClient)return;
+    const{error}=await window._supabaseClient.from('team_memos').insert({
       content:t,author_name:displayName,author_id:user.id,done:false
     });
     if(!error)setInput('');
   };
   const toggle=async(m)=>{
-    if(m.author_id!==user?.id)return;
-    await window.supabase.from('team_memos').update({done:!m.done}).eq('id',m.id);
+    if(m.author_id!==user?.id||!window._supabaseClient)return;
+    await window._supabaseClient.from('team_memos').update({done:!m.done}).eq('id',m.id);
   };
   const remove=async(m)=>{
-    if(m.author_id!==user?.id)return;
-    await window.supabase.from('team_memos').delete().eq('id',m.id);
+    if(m.author_id!==user?.id||!window._supabaseClient)return;
+    await window._supabaseClient.from('team_memos').delete().eq('id',m.id);
   };
   const fmtDate=(s)=>{
     const d=new Date(s);const now=new Date();
