@@ -1837,19 +1837,31 @@ function TeamMemo({user}){
     return()=>{try{sub&&sub.unsubscribe();}catch{}};
   },[]);
 
+  const refetch=async()=>{
+    if(!window._supabaseClient)return;
+    const{data}=await window._supabaseClient.from('team_memos').select('*').order('created_at',{ascending:false}).limit(30);
+    if(data)setMemos(data);
+  };
   const add=async()=>{
     const t=input.trim();if(!t||!user||!window._supabaseClient)return;
+    const newMemo={id:'tmp-'+Date.now(),content:t,author_name:displayName,author_id:user.id,done:false,created_at:new Date().toISOString()};
+    setMemos(prev=>[newMemo,...prev]);
+    setInput('');
     const{error}=await window._supabaseClient.from('team_memos').insert({
       content:t,author_name:displayName,author_id:user.id,done:false
     });
-    if(!error)setInput('');
+    if(error){setMemos(prev=>prev.filter(m=>m.id!==newMemo.id));}
+    else{refetch();}
   };
   const toggle=async(m)=>{
     if(m.author_id!==user?.id||!window._supabaseClient)return;
+    setMemos(prev=>prev.map(x=>x.id===m.id?{...x,done:!x.done}:x));
     await window._supabaseClient.from('team_memos').update({done:!m.done}).eq('id',m.id);
+    refetch();
   };
   const remove=async(m)=>{
     if(m.author_id!==user?.id||!window._supabaseClient)return;
+    setMemos(prev=>prev.filter(x=>x.id!==m.id));
     await window._supabaseClient.from('team_memos').delete().eq('id',m.id);
   };
   const fmtDate=(s)=>{
