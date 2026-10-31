@@ -1364,14 +1364,16 @@ function LeasePrintContent({ data }){
   const displayDays = eventDays || days;
 
   const lines = items.map(item=>{
-    const p=PRICE_TABLE[item.name]; if(!p) return null;
+    // カスタム商品はitem自体の値を、通常商品はPRICE_TABLEを参照
+    const p = item.custom ? item : PRICE_TABLE[item.name];
+    if(!p) return null;
     const base=p.base*item.qty;
-    const setup=calcItemSetup(p,item.qty,setupMode);
-    const ext=calcExt(p,displayDays)*Math.max(0,displayDays-1)*item.qty;
-    const tot=base+setup+ext;
-    let detail=p.spec;
-    if(setupMode!=='none') detail+=` ／ ${setupShort[setupMode]}`;
-    if(displayDays>1) detail+=` ／ 延長${displayDays-1}日`;
+    const setup=item.custom ? 0 : calcItemSetup(p,item.qty,setupMode);
+    const ext=item.custom ? 0 : calcExt(p,displayDays)*item.qty;
+    const tot=Math.floor(base+setup+ext);
+    let detail=item.custom ? (item.spec||'カスタム商品') : p.spec;
+    if(!item.custom && setupMode!=='none') detail+=` ／ ${setupShort[setupMode]}`;
+    if(!item.custom && displayDays>1) detail+=` ／ 延長${displayDays-1}日`;
     return {item:item.name, detail, qty:`${item.qty}`, unit:`${p.base.toLocaleString()}円`, amount:`${tot.toLocaleString()}円`};
   }).filter(Boolean);
   if(staffFull>0){
@@ -2283,6 +2285,11 @@ function QuotePage({addActivity, user}){
   const [teardownUndef,setTeardownUndef]=useState(false);
   const [showPdf,setShowPdf]=useState(false);
   const [docType,setDocType]=useState('estimate');
+  // カスタム商品入力フォーム
+  const [customName,setCustomName]=useState('');
+  const [customSpec,setCustomSpec]=useState('');
+  const [customPrice,setCustomPrice]=useState('');
+  const [showCustomForm,setShowCustomForm]=useState(false);
 
   // ログインユーザーの苗字
   const staffLastName = React.useMemo(()=>{
@@ -2305,13 +2312,29 @@ function QuotePage({addActivity, user}){
     const item = PRICE_TABLE[name];
     if(!item) return;
     setCart(prev=>{
-      const exist=prev.find(c=>c.name===name);
-      if(exist) return prev.map(c=>c.name===name?{...c,qty:c.qty+1}:c);
+      const exist=prev.find(c=>c.name===name&&!c.custom);
+      if(exist) return prev.map(c=>c.name===name&&!c.custom?{...c,qty:c.qty+1}:c);
       return [...prev,{name,qty:1,...item}];
     });
   }
-  function updateQty(name,v){ setCart(prev=>prev.map(c=>c.name===name?{...c,qty:Math.max(1,parseInt(v)||1)}:c)); }
-  function removeFromCart(name){ setCart(prev=>prev.filter(c=>c.name!==name)); }
+  function addCustomToCart(){
+    const n=customName.trim(); const pr=parseInt(customPrice)||0;
+    if(!n||pr<=0) return;
+    const id='custom-'+Date.now();
+    setCart(prev=>[...prev,{name:n,qty:1,base:pr,ext1w:0,ext4w:0,ext4wplus:0,setup:0,cat:'カスタム',spec:customSpec.trim()||'',custom:true,id}]);
+    setCustomName('');setCustomSpec('');setCustomPrice('');setShowCustomForm(false);
+  }
+  function updateQty(id,v,isCustom){
+    if(isCustom){
+      setCart(prev=>prev.map(c=>c.id===id?{...c,qty:Math.max(1,parseInt(v)||1)}:c));
+    } else {
+      setCart(prev=>prev.map(c=>c.name===id&&!c.custom?{...c,qty:Math.max(1,parseInt(v)||1)}:c));
+    }
+  }
+  function removeFromCart(id,isCustom){
+    if(isCustom){ setCart(prev=>prev.filter(c=>c.id!==id)); }
+    else { setCart(prev=>prev.filter(c=>!(c.name===id&&!c.custom))); }
+  }
   const calcExt=(item,d)=>{
     if(d<=7) return item.ext1w*(d-1);
     if(d<=28) return item.ext1w*6+item.ext4w*(d-7);
@@ -2322,7 +2345,10 @@ function QuotePage({addActivity, user}){
     if(mode==='setup'||mode==='teardown') return Math.round(item.setup*0.5);
     return 0;
   };
-  const itemTotal=(item,d,mode)=>Math.floor((item.base+calcExt(item,d)+calcItemSetup(item,mode))*item.qty);
+  const itemTotal=(item,d,mode)=>{
+    if(item.custom) return Math.floor(item.base*item.qty);
+    return Math.floor((item.base+calcExt(item,d)+calcItemSetup(item,mode))*item.qty);
+  };
 
   const cartSub = cart.reduce((a,it)=>a+itemTotal(it,days,setupMode),0);
   const staffCost = staffFull*STAFF_FULL_PRICE + staffHalf*STAFF_HALF_PRICE;
@@ -2376,160 +2402,196 @@ function QuotePage({addActivity, user}){
           }}/>
         </PrintModal>
       )}
-      <div style={{maxWidth:1100,margin:'0 auto',padding:'24px 20px'}}>
-        <div style={{fontSize:12,color:'var(--text-sub)',marginBottom:6}}>ホーム › リース商品見積もり</div>
-        <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:20}}>
-          <div style={{width:38,height:38,background:`linear-gradient(135deg,${C.navy},${C.blue})`,borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>📋</div>
-          <div>
-            <h1 style={{fontSize:20,fontWeight:900,color:C.navy}}>リース商品 見積もり</h1>
-            <p style={{fontSize:12,color:'var(--text-sub)'}}>カテゴリ・検索で商品を選んでカートに追加 → 条件設定 → PDF出力</p>
-          </div>
-        </div>
+      {/* 左右分割メインレイアウト */}
+      <div style={{display:'grid',gridTemplateColumns:'420px 1fr',height:'calc(100vh - 56px)',overflow:'hidden'}}>
 
-        <div style={{display:'grid',gridTemplateColumns:'1fr 320px',gap:16,alignItems:'start'}}>
-
-          <div>
-
-            <div style={{marginBottom:10}}>
-              <div style={{fontSize:11,fontWeight:700,color:'var(--text-sub)',marginBottom:6}}>① カテゴリで絞り込み</div>
-              <div style={{display:'flex',flexWrap:'wrap',gap:5}}>
-                <button onClick={()=>setSelCat(null)} style={{padding:'5px 12px',borderRadius:20,border:'1.5px solid',fontSize:11,fontWeight:700,cursor:'pointer',borderColor:!selCat?C.navy:'var(--border)',background:!selCat?C.navy:'#fff',color:!selCat?'#fff':'var(--text-sub)'}}>すべて</button>
-                {LEASE_CATS.map(cat=>(
-                  <button key={cat} onClick={()=>setSelCat(c=>c===cat?null:cat)}
-                    style={{padding:'5px 12px',borderRadius:20,border:'1.5px solid',fontSize:11,fontWeight:700,cursor:'pointer',
-                      borderColor:selCat===cat?C.navy:'var(--border)',background:selCat===cat?C.navy:'#fff',color:selCat===cat?'#fff':'var(--text-sub)'}}>
-                    {cat}
-                  </button>
-                ))}
+        {/* ===== 左パネル：商品選択・設定 ===== */}
+        <div style={{overflowY:'auto',borderRight:'1px solid var(--border)',background:'var(--bg)',display:'flex',flexDirection:'column'}}>
+          {/* ヘッダー */}
+          <div style={{padding:'16px 16px 10px',borderBottom:'1px solid var(--border)',flexShrink:0}}>
+            <div style={{display:'flex',alignItems:'center',gap:8}}>
+              <div style={{width:32,height:32,background:`linear-gradient(135deg,${C.navy},${C.blue})`,borderRadius:8,display:'flex',alignItems:'center',justifyContent:'center',fontSize:15}}>📋</div>
+              <div>
+                <h1 style={{fontSize:16,fontWeight:900,color:C.navy,lineHeight:1.1}}>リース商品 見積もり</h1>
+                <p style={{fontSize:10,color:'var(--text-sub)'}}>商品を追加すると右側の見積書がリアルタイム更新されます</p>
               </div>
             </div>
-
-            <div style={{marginBottom:10,position:'relative'}}>
-              <div style={{fontSize:11,fontWeight:700,color:'var(--text-sub)',marginBottom:5}}>② キーワードで検索</div>
-              <input placeholder="例：3間テント、LED、発電機..." value={search} onChange={e=>setSearch(e.target.value)} style={{...inp,paddingLeft:34}}/>
-              <span style={{position:'absolute',left:10,bottom:10,fontSize:14,color:'var(--text-muted)'}}>🔍</span>
-            </div>
-
-            <div style={{fontSize:11,fontWeight:700,color:'var(--text-sub)',marginBottom:6}}>③ 商品をタップで追加（{filtered.length}品目）</div>
-            <div style={{maxHeight:500,overflowY:'auto',border:'1px solid var(--border)',borderRadius:10,background:'var(--surface)'}}>
-              {Object.keys(groups).length===0?(
-                <div style={{padding:32,textAlign:'center',color:'var(--text-muted)',fontSize:13}}>該当商品なし</div>
-              ):Object.entries(groups).map(([cat,items])=>(
-                <div key={cat}>
-                  <div style={{padding:'7px 14px',background:'var(--bg)',borderBottom:'1px solid var(--border)',fontSize:11,fontWeight:800,color:C.navy,position:'sticky',top:0,zIndex:1}}>
-                    {cat}
-                  </div>
-                  {items.map(item=>{
-                    const inCart=cart.find(c=>c.name===item.name);
-                    return(
-                      <div key={item.name} onClick={()=>addToCart(item.name)}
-                        style={{padding:'9px 14px',borderBottom:'1px solid var(--border-light)',display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',background:inCart?'#f0fdf4':'#fff',transition:'background 0.1s'}}
-                        onMouseOver={e=>e.currentTarget.style.background=inCart?'#dcfce7':'#f5f8ff'}
-                        onMouseOut={e=>e.currentTarget.style.background=inCart?'#f0fdf4':'#fff'}>
-                        <div style={{flex:1,minWidth:0}}>
-                          <div style={{fontWeight:600,fontSize:13,color:C.text,display:'flex',alignItems:'center',gap:6}}>
-                            {item.name}
-                            {inCart&&<span style={{background:'#16a34a',color:'#fff',fontSize:9,borderRadius:3,padding:'1px 5px',fontWeight:700}}>×{inCart.qty}</span>}
-                          </div>
-                          <div style={{fontSize:10,color:'var(--text-muted)',marginTop:1}}>{item.spec}　基本 ¥{item.base.toLocaleString()}　延長1w ¥{item.ext1w.toLocaleString()}</div>
-                        </div>
-                        <div style={{background:inCart?'#16a34a':C.navy,color:'#fff',borderRadius:6,padding:'4px 10px',fontSize:10,fontWeight:700,flexShrink:0,marginLeft:8}}>
-                          {inCart?'+追加':'追加'}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
           </div>
 
-          <div style={{position:'sticky',top:20,display:'grid',gap:10}}>
+          <div style={{padding:'12px 14px',display:'flex',flexDirection:'column',gap:10,flex:1}}>
 
-            <div style={{background:'var(--surface)',borderRadius:12,border:'1px solid var(--border)',padding:16,boxShadow:'var(--shadow)'}}>
-              <div style={{fontSize:12,fontWeight:800,color:C.navy,marginBottom:10}}>📝 基本情報</div>
-              <div style={{display:'grid',gap:7}}>
+            {/* 基本情報 */}
+            <div style={{background:'var(--surface)',borderRadius:10,border:'1px solid var(--border)',padding:12}}>
+              <div style={{fontSize:11,fontWeight:800,color:C.navy,marginBottom:8}}>📝 基本情報</div>
+              <div style={{display:'grid',gap:6}}>
                 <div>
                   <div style={{fontSize:10,color:'var(--text-sub)',marginBottom:2,fontWeight:700}}>宛名</div>
-                  <div style={{display:'flex',gap:6}}>
-                    <input value={customerName} onChange={e=>setCustomerName(e.target.value)} placeholder="会社名・お客様名" style={{...inp,fontSize:12,padding:'6px 10px',flex:1}}/>
+                  <div style={{display:'flex',gap:5}}>
+                    <input value={customerName} onChange={e=>setCustomerName(e.target.value)} placeholder="会社名・お客様名" style={{...inp,fontSize:12,padding:'5px 9px',flex:1}}/>
                     <HonorificSelect value={customerHonorific} onChange={setCustomerHonorific}/>
                   </div>
                 </div>
                 <div>
                   <div style={{fontSize:10,color:'var(--text-sub)',marginBottom:2,fontWeight:700}}>現場名</div>
-                  <input value={projectName} onChange={e=>setProjectName(e.target.value)} placeholder="現場名・件名" style={{...inp,fontSize:12,padding:'6px 10px'}}/>
+                  <input value={projectName} onChange={e=>setProjectName(e.target.value)} placeholder="現場名・件名" style={{...inp,fontSize:12,padding:'5px 9px'}}/>
                 </div>
-                <div>
-                  <div style={{fontSize:10,color:'var(--text-sub)',marginBottom:2,fontWeight:700}}>利用日数</div>
-                  <div style={{display:'flex',alignItems:'center',gap:8}}>
-                    <button onClick={()=>setDays(d=>Math.max(1,d-1))} style={{width:28,height:28,border:'1px solid var(--border)',borderRadius:6,background:'#fff',cursor:'pointer',fontWeight:700,fontSize:16}}>－</button>
-                    <span style={{fontSize:18,fontWeight:900,color:C.navy,minWidth:28,textAlign:'center'}}>{days}</span>
-                    <button onClick={()=>setDays(d=>d+1)} style={{width:28,height:28,border:'1px solid var(--border)',borderRadius:6,background:'#fff',cursor:'pointer',fontWeight:700,fontSize:16}}>＋</button>
-                    <span style={{fontSize:12,color:'var(--text-sub)'}}>日間</span>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
+                  <div>
+                    <div style={{fontSize:10,color:'var(--text-sub)',marginBottom:2,fontWeight:700}}>見積日</div>
+                    <input type="date" value={dateStr} onChange={e=>setDateStr(e.target.value)} style={{...inp,fontSize:11,padding:'5px 8px'}}/>
                   </div>
-                </div>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:8}}>
-                {[
-                  ['設営日',setupDateFrom,setSetupDateFrom,setupDateTo,setSetupDateTo,setupUndef,setSetupUndef],
-                  ['開催日',eventDateFrom,setEventDateFrom,eventDateTo,setEventDateTo,eventUndef,setEventUndef],
-                  ['撤去日',teardownDateFrom,setTeardownDateFrom,teardownDateTo,setTeardownDateTo,teardownUndef,setTeardownUndef],
-                ].map(([label,from,setFrom,to,setTo,undef,setUndef])=>(
-                  <div key={label} style={{background:'var(--bg)',borderRadius:8,padding:'8px 8px 6px'}}>
-                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:4}}>
-                      <div style={{fontSize:10,color:'var(--text-sub)',fontWeight:700}}>{label}</div>
-                      <label style={{display:'flex',alignItems:'center',gap:3,cursor:'pointer',fontSize:9,color:undef?C.blue:'var(--text-muted)',fontWeight:undef?700:400}}>
-                        <input type="checkbox" checked={undef} onChange={e=>{setUndef(e.target.checked);if(e.target.checked){setFrom('');setTo('');}}} style={{width:11,height:11,accentColor:C.blue}}/>
-                        未定
-                      </label>
+                  <div>
+                    <div style={{fontSize:10,color:'var(--text-sub)',marginBottom:2,fontWeight:700}}>利用日数</div>
+                    <div style={{display:'flex',alignItems:'center',gap:6}}>
+                      <button onClick={()=>setDays(d=>Math.max(1,d-1))} style={{width:24,height:24,border:'1px solid var(--border)',borderRadius:5,background:'#fff',cursor:'pointer',fontWeight:700,fontSize:14}}>－</button>
+                      <span style={{fontSize:16,fontWeight:900,color:C.navy,minWidth:22,textAlign:'center'}}>{days}</span>
+                      <button onClick={()=>setDays(d=>d+1)} style={{width:24,height:24,border:'1px solid var(--border)',borderRadius:5,background:'#fff',cursor:'pointer',fontWeight:700,fontSize:14}}>＋</button>
+                      <span style={{fontSize:11,color:'var(--text-sub)'}}>日間</span>
                     </div>
-                    {undef?(
-                      <div style={{textAlign:'center',fontSize:11,color:C.blue,fontWeight:800,padding:'10px 0',background:'#eff6ff',borderRadius:5}}>未定</div>
-                    ):(
-                      <>
-                        <input type="date" value={from} onChange={e=>{setFrom(e.target.value);if(!e.target.value)setTo('');}} style={{...inp,fontSize:10,padding:'4px 6px',width:'100%',boxSizing:'border-box',marginBottom:3}}/>
-                        <div style={{textAlign:'center',fontSize:9,color:'var(--text-muted)',margin:'1px 0'}}>〜</div>
-                        <input type="date" value={to} min={from} onChange={e=>setTo(e.target.value)} disabled={!from} style={{...inp,fontSize:10,padding:'4px 6px',width:'100%',boxSizing:'border-box',opacity:from?1:0.35}}/>
-                        {from&&to&&from===to&&<div style={{fontSize:9,color:'var(--text-muted)',marginTop:3,textAlign:'center'}}>1日のみ</div>}
-                        {from&&to&&from!==to&&<div style={{fontSize:9,color:C.blue,marginTop:3,textAlign:'center',fontWeight:700}}>{Math.round((new Date(to)-new Date(from))/(86400000))+1}日間</div>}
-                      </>
-                    )}
                   </div>
-                ))}
                 </div>
                 <div>
                   <div style={{fontSize:10,color:'var(--text-sub)',marginBottom:4,fontWeight:700}}>設営・撤去</div>
                   <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:4}}>
                     {SETUP_OPTIONS.map(o=>(
                       <button key={o.val} onClick={()=>setSetupMode(o.val)}
-                        style={{padding:'6px 4px',border:`1.5px solid ${setupMode===o.val?C.navy:'var(--border)'}`,borderRadius:6,fontSize:10,fontWeight:700,cursor:'pointer',background:setupMode===o.val?C.navy:'#fff',color:setupMode===o.val?'#fff':'var(--text-sub)'}}>
+                        style={{padding:'5px 4px',border:`1.5px solid ${setupMode===o.val?C.navy:'var(--border)'}`,borderRadius:5,fontSize:10,fontWeight:700,cursor:'pointer',background:setupMode===o.val?C.navy:'#fff',color:setupMode===o.val?'#fff':'var(--text-sub)'}}>
                         {o.label}
                       </button>
                     ))}
                   </div>
                 </div>
+                {/* 日程 */}
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:6}}>
+                {[
+                  ['設営日',setupDateFrom,setSetupDateFrom,setupDateTo,setSetupDateTo,setupUndef,setSetupUndef],
+                  ['開催日',eventDateFrom,setEventDateFrom,eventDateTo,setEventDateTo,eventUndef,setEventUndef],
+                  ['撤去日',teardownDateFrom,setTeardownDateFrom,teardownDateTo,setTeardownDateTo,teardownUndef,setTeardownUndef],
+                ].map(([label,from,setFrom,to,setTo,undef,setUndef])=>(
+                  <div key={label} style={{background:'var(--bg)',borderRadius:7,padding:'7px 7px 5px'}}>
+                    <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:3}}>
+                      <div style={{fontSize:9,color:'var(--text-sub)',fontWeight:700}}>{label}</div>
+                      <label style={{display:'flex',alignItems:'center',gap:2,cursor:'pointer',fontSize:8,color:undef?C.blue:'var(--text-muted)',fontWeight:undef?700:400}}>
+                        <input type="checkbox" checked={undef} onChange={e=>{setUndef(e.target.checked);if(e.target.checked){setFrom('');setTo('');}}} style={{width:10,height:10,accentColor:C.blue}}/>
+                        未定
+                      </label>
+                    </div>
+                    {undef?(
+                      <div style={{textAlign:'center',fontSize:10,color:C.blue,fontWeight:800,padding:'8px 0',background:'#eff6ff',borderRadius:4}}>未定</div>
+                    ):(
+                      <>
+                        <input type="date" value={from} onChange={e=>{setFrom(e.target.value);if(!e.target.value)setTo('');}} style={{...inp,fontSize:9,padding:'3px 5px',width:'100%',boxSizing:'border-box',marginBottom:2}}/>
+                        <div style={{textAlign:'center',fontSize:8,color:'var(--text-muted)',margin:'1px 0'}}>〜</div>
+                        <input type="date" value={to} min={from} onChange={e=>setTo(e.target.value)} disabled={!from} style={{...inp,fontSize:9,padding:'3px 5px',width:'100%',boxSizing:'border-box',opacity:from?1:0.35}}/>
+                        {from&&to&&from!==to&&<div style={{fontSize:8,color:C.blue,marginTop:2,textAlign:'center',fontWeight:700}}>{Math.round((new Date(to)-new Date(from))/(86400000))+1}日間</div>}
+                      </>
+                    )}
+                  </div>
+                ))}
+                </div>
               </div>
             </div>
 
-            <div style={{background:'var(--surface)',borderRadius:12,border:'1px solid var(--border)',padding:16,boxShadow:'var(--shadow)'}}>
-              <div style={{fontSize:12,fontWeight:800,color:C.navy,marginBottom:8,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                🛒 選択商品（{cart.length}品目）
+            {/* 商品カタログ */}
+            <div style={{background:'var(--surface)',borderRadius:10,border:'1px solid var(--border)',padding:12}}>
+              <div style={{fontSize:11,fontWeight:800,color:C.navy,marginBottom:8}}>📦 商品カタログ</div>
+              {/* カテゴリ絞り込み */}
+              <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
+                <button onClick={()=>setSelCat(null)} style={{padding:'3px 10px',borderRadius:16,border:'1.5px solid',fontSize:10,fontWeight:700,cursor:'pointer',borderColor:!selCat?C.navy:'var(--border)',background:!selCat?C.navy:'#fff',color:!selCat?'#fff':'var(--text-sub)'}}>すべて</button>
+                {LEASE_CATS.map(cat=>(
+                  <button key={cat} onClick={()=>setSelCat(c=>c===cat?null:cat)}
+                    style={{padding:'3px 10px',borderRadius:16,border:'1.5px solid',fontSize:10,fontWeight:700,cursor:'pointer',
+                      borderColor:selCat===cat?C.navy:'var(--border)',background:selCat===cat?C.navy:'#fff',color:selCat===cat?'#fff':'var(--text-sub)'}}>
+                    {cat}
+                  </button>
+                ))}
+              </div>
+              {/* 検索 */}
+              <div style={{position:'relative',marginBottom:8}}>
+                <input placeholder="キーワード検索..." value={search} onChange={e=>setSearch(e.target.value)} style={{...inp,paddingLeft:30,fontSize:12,padding:'6px 10px 6px 30px'}}/>
+                <span style={{position:'absolute',left:9,top:'50%',transform:'translateY(-50%)',fontSize:13,color:'var(--text-muted)'}}>🔍</span>
+              </div>
+              {/* 商品リスト */}
+              <div style={{maxHeight:280,overflowY:'auto',border:'1px solid var(--border)',borderRadius:8,background:'var(--surface)'}}>
+                {Object.keys(groups).length===0?(
+                  <div style={{padding:24,textAlign:'center',color:'var(--text-muted)',fontSize:12}}>該当商品なし</div>
+                ):Object.entries(groups).map(([cat,items])=>(
+                  <div key={cat}>
+                    <div style={{padding:'5px 12px',background:'var(--bg)',borderBottom:'1px solid var(--border)',fontSize:10,fontWeight:800,color:C.navy,position:'sticky',top:0,zIndex:1}}>
+                      {cat}
+                    </div>
+                    {items.map(item=>{
+                      const inCart=cart.find(c=>c.name===item.name&&!c.custom);
+                      return(
+                        <div key={item.name} onClick={()=>addToCart(item.name)}
+                          style={{padding:'7px 12px',borderBottom:'1px solid var(--border-light)',display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',background:inCart?'#f0fdf4':'#fff',transition:'background 0.1s'}}
+                          onMouseOver={e=>e.currentTarget.style.background=inCart?'#dcfce7':'#f5f8ff'}
+                          onMouseOut={e=>e.currentTarget.style.background=inCart?'#f0fdf4':'#fff'}>
+                          <div style={{flex:1,minWidth:0}}>
+                            <div style={{fontWeight:600,fontSize:12,color:C.text,display:'flex',alignItems:'center',gap:5}}>
+                              {item.name}
+                              {inCart&&<span style={{background:'#16a34a',color:'#fff',fontSize:9,borderRadius:3,padding:'1px 4px',fontWeight:700}}>×{inCart.qty}</span>}
+                            </div>
+                            <div style={{fontSize:9,color:'var(--text-muted)',marginTop:1}}>¥{item.base.toLocaleString()}　{item.spec}</div>
+                          </div>
+                          <div style={{background:inCart?'#16a34a':C.navy,color:'#fff',borderRadius:5,padding:'3px 9px',fontSize:10,fontWeight:700,flexShrink:0,marginLeft:8}}>
+                            {inCart?'+追加':'追加'}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+
+              {/* カスタム商品入力 */}
+              <div style={{marginTop:8}}>
+                {!showCustomForm?(
+                  <button onClick={()=>setShowCustomForm(true)} style={{width:'100%',padding:'7px',border:'1.5px dashed var(--border)',borderRadius:8,background:'transparent',color:'var(--text-sub)',fontSize:11,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',justifyContent:'center',gap:5}}>
+                    ＋ リストにない商品を追加
+                  </button>
+                ):(
+                  <div style={{border:'1.5px solid #6366f1',borderRadius:8,padding:10,background:'#f5f3ff'}}>
+                    <div style={{fontSize:10,fontWeight:800,color:'#6366f1',marginBottom:6}}>✏️ カスタム商品</div>
+                    <div style={{display:'grid',gap:5}}>
+                      <input placeholder="商品名 *" value={customName} onChange={e=>setCustomName(e.target.value)} style={{...inp,fontSize:12,padding:'5px 9px',borderColor:'#a5b4fc'}}/>
+                      <input placeholder="規格・説明（任意）" value={customSpec} onChange={e=>setCustomSpec(e.target.value)} style={{...inp,fontSize:11,padding:'5px 9px',borderColor:'#a5b4fc'}}/>
+                      <input type="number" placeholder="単価（円）*" value={customPrice} onChange={e=>setCustomPrice(e.target.value)} style={{...inp,fontSize:12,padding:'5px 9px',borderColor:'#a5b4fc'}}/>
+                      <div style={{display:'flex',gap:5}}>
+                        <button onClick={addCustomToCart} disabled={!customName.trim()||!(parseInt(customPrice)>0)} style={{flex:1,padding:'6px',background:'#6366f1',color:'#fff',border:'none',borderRadius:6,fontSize:11,fontWeight:700,cursor:'pointer',opacity:customName.trim()&&parseInt(customPrice)>0?1:0.4}}>
+                          追加
+                        </button>
+                        <button onClick={()=>{setShowCustomForm(false);setCustomName('');setCustomSpec('');setCustomPrice('');}} style={{padding:'6px 12px',background:'#fff',color:'var(--text-sub)',border:'1px solid var(--border)',borderRadius:6,fontSize:11,cursor:'pointer'}}>
+                          キャンセル
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* カート */}
+            <div style={{background:'var(--surface)',borderRadius:10,border:'1px solid var(--border)',padding:12}}>
+              <div style={{fontSize:11,fontWeight:800,color:C.navy,marginBottom:8,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+                🛒 追加済み商品（{cart.length}品目）
                 {cart.length>0&&<button onClick={()=>setCart([])} style={{background:'none',border:'none',fontSize:10,color:'var(--text-muted)',cursor:'pointer'}}>全削除</button>}
               </div>
               {cart.length===0?(
-                <div style={{textAlign:'center',color:'var(--text-muted)',fontSize:12,padding:'12px 0'}}>左のリストから商品を追加</div>
+                <div style={{textAlign:'center',color:'var(--text-muted)',fontSize:12,padding:'10px 0'}}>上のカタログから商品を追加</div>
               ):(
-                <div style={{display:'grid',gap:5,maxHeight:200,overflowY:'auto'}}>
+                <div style={{display:'grid',gap:4,maxHeight:220,overflowY:'auto'}}>
                   {cart.map(it=>(
-                    <div key={it.name} style={{background:'var(--bg)',borderRadius:6,padding:'7px 9px'}}>
-                      <div style={{display:'flex',alignItems:'center',gap:6,marginBottom:4}}>
+                    <div key={it.custom?it.id:it.name} style={{background:it.custom?'#f5f3ff':'var(--bg)',borderRadius:6,padding:'6px 9px',border:it.custom?'1px solid #c4b5fd':'1px solid transparent'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:5,marginBottom:3}}>
+                        {it.custom&&<span style={{fontSize:8,background:'#6366f1',color:'#fff',borderRadius:3,padding:'1px 4px',fontWeight:700}}>カスタム</span>}
                         <span style={{fontSize:11,fontWeight:700,color:C.text,flex:1,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{it.name}</span>
-                        <button onClick={()=>removeFromCart(it.name)} style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:13}}>×</button>
+                        <button onClick={()=>removeFromCart(it.custom?it.id:it.name,it.custom)} style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:12}}>×</button>
                       </div>
-                      <div style={{display:'flex',alignItems:'center',gap:5}}>
-                        <button onClick={()=>updateQty(it.name,it.qty-1)} style={{width:20,height:20,border:'1px solid var(--border)',borderRadius:4,background:'#fff',cursor:'pointer',fontSize:12,fontWeight:700}}>－</button>
-                        <span style={{fontSize:12,fontWeight:800,minWidth:16,textAlign:'center'}}>{it.qty}</span>
-                        <button onClick={()=>updateQty(it.name,it.qty+1)} style={{width:20,height:20,border:'1px solid var(--border)',borderRadius:4,background:'#fff',cursor:'pointer',fontSize:12,fontWeight:700}}>＋</button>
+                      <div style={{display:'flex',alignItems:'center',gap:4}}>
+                        <button onClick={()=>updateQty(it.custom?it.id:it.name,it.qty-1,it.custom)} style={{width:18,height:18,border:'1px solid var(--border)',borderRadius:4,background:'#fff',cursor:'pointer',fontSize:11,fontWeight:700}}>－</button>
+                        <span style={{fontSize:12,fontWeight:800,minWidth:14,textAlign:'center'}}>{it.qty}</span>
+                        <button onClick={()=>updateQty(it.custom?it.id:it.name,it.qty+1,it.custom)} style={{width:18,height:18,border:'1px solid var(--border)',borderRadius:4,background:'#fff',cursor:'pointer',fontSize:11,fontWeight:700}}>＋</button>
                         <span style={{fontSize:10,color:'var(--text-muted)'}}>点</span>
                         <span style={{marginLeft:'auto',fontSize:11,fontWeight:700,color:C.navy}}>¥{itemTotal(it,days,setupMode).toLocaleString()}</span>
                       </div>
@@ -2539,38 +2601,37 @@ function QuotePage({addActivity, user}){
               )}
             </div>
 
-            <div style={{background:'var(--surface)',borderRadius:12,border:'1px solid var(--border)',padding:16,boxShadow:'var(--shadow)'}}>
-              <div style={{fontSize:12,fontWeight:800,color:C.navy,marginBottom:10}}>⚙️ その他費用</div>
-              <div style={{display:'grid',gap:8}}>
-                <div style={{display:'flex',alignItems:'center',gap:8}}>
-                  <span style={{fontSize:11,flex:1,color:'var(--text-sub)'}}>設営スタッフ（1日）</span>
-                  <button onClick={()=>setStaffFull(n=>Math.max(0,n-1))} style={{width:22,height:22,border:'1px solid var(--border)',borderRadius:4,background:'#fff',cursor:'pointer',fontWeight:700}}>－</button>
-                  <span style={{fontSize:13,fontWeight:800,minWidth:20,textAlign:'center'}}>{staffFull}</span>
-                  <button onClick={()=>setStaffFull(n=>n+1)} style={{width:22,height:22,border:'1px solid var(--border)',borderRadius:4,background:'#fff',cursor:'pointer',fontWeight:700}}>＋</button>
-                  <span style={{fontSize:10,color:'var(--text-muted)',minWidth:50}}>¥{(staffFull*STAFF_FULL_PRICE).toLocaleString()}</span>
+            {/* その他費用 */}
+            <div style={{background:'var(--surface)',borderRadius:10,border:'1px solid var(--border)',padding:12}}>
+              <div style={{fontSize:11,fontWeight:800,color:C.navy,marginBottom:8}}>⚙️ その他費用</div>
+              <div style={{display:'grid',gap:7}}>
+                <div style={{display:'flex',alignItems:'center',gap:7}}>
+                  <span style={{fontSize:10,flex:1,color:'var(--text-sub)'}}>スタッフ（1日）</span>
+                  <button onClick={()=>setStaffFull(n=>Math.max(0,n-1))} style={{width:20,height:20,border:'1px solid var(--border)',borderRadius:4,background:'#fff',cursor:'pointer',fontWeight:700,fontSize:12}}>－</button>
+                  <span style={{fontSize:12,fontWeight:800,minWidth:18,textAlign:'center'}}>{staffFull}</span>
+                  <button onClick={()=>setStaffFull(n=>n+1)} style={{width:20,height:20,border:'1px solid var(--border)',borderRadius:4,background:'#fff',cursor:'pointer',fontWeight:700,fontSize:12}}>＋</button>
+                  <span style={{fontSize:10,color:'var(--text-muted)',minWidth:48}}>¥{(staffFull*STAFF_FULL_PRICE).toLocaleString()}</span>
                 </div>
-                <div style={{display:'flex',alignItems:'center',gap:8}}>
-                  <span style={{fontSize:11,flex:1,color:'var(--text-sub)'}}>設営スタッフ（半日）</span>
-                  <button onClick={()=>setStaffHalf(n=>Math.max(0,n-1))} style={{width:22,height:22,border:'1px solid var(--border)',borderRadius:4,background:'#fff',cursor:'pointer',fontWeight:700}}>－</button>
-                  <span style={{fontSize:13,fontWeight:800,minWidth:20,textAlign:'center'}}>{staffHalf}</span>
-                  <button onClick={()=>setStaffHalf(n=>n+1)} style={{width:22,height:22,border:'1px solid var(--border)',borderRadius:4,background:'#fff',cursor:'pointer',fontWeight:700}}>＋</button>
-                  <span style={{fontSize:10,color:'var(--text-muted)',minWidth:50}}>¥{(staffHalf*STAFF_HALF_PRICE).toLocaleString()}</span>
+                <div style={{display:'flex',alignItems:'center',gap:7}}>
+                  <span style={{fontSize:10,flex:1,color:'var(--text-sub)'}}>スタッフ（半日）</span>
+                  <button onClick={()=>setStaffHalf(n=>Math.max(0,n-1))} style={{width:20,height:20,border:'1px solid var(--border)',borderRadius:4,background:'#fff',cursor:'pointer',fontWeight:700,fontSize:12}}>－</button>
+                  <span style={{fontSize:12,fontWeight:800,minWidth:18,textAlign:'center'}}>{staffHalf}</span>
+                  <button onClick={()=>setStaffHalf(n=>n+1)} style={{width:20,height:20,border:'1px solid var(--border)',borderRadius:4,background:'#fff',cursor:'pointer',fontWeight:700,fontSize:12}}>＋</button>
+                  <span style={{fontSize:10,color:'var(--text-muted)',minWidth:48}}>¥{(staffHalf*STAFF_HALF_PRICE).toLocaleString()}</span>
                 </div>
-                <div>
-                  <div style={{fontSize:10,color:'var(--text-sub)',marginBottom:3,fontWeight:700}}>運搬費メモ</div>
-                  <input placeholder="別途お見積もり など" value={transportNote} onChange={e=>setTransportNote(e.target.value)} style={{...inp,fontSize:11,padding:'5px 8px'}}/>
-                </div>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
-                  <input placeholder="調整項目名" value={adjustLabel} onChange={e=>setAdjustLabel(e.target.value)} style={{...inp,fontSize:11,padding:'5px 8px'}}/>
-                  <input type="number" placeholder="金額（値引きは－）" value={adjustAmount} onChange={e=>setAdjustAmount(e.target.value)} style={{...inp,fontSize:11,padding:'5px 8px'}}/>
+                <input placeholder="運搬費メモ（例：別途お見積もり）" value={transportNote} onChange={e=>setTransportNote(e.target.value)} style={{...inp,fontSize:10,padding:'4px 8px'}}/>
+                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:5}}>
+                  <input placeholder="調整項目名" value={adjustLabel} onChange={e=>setAdjustLabel(e.target.value)} style={{...inp,fontSize:10,padding:'4px 8px'}}/>
+                  <input type="number" placeholder="金額（値引きは－）" value={adjustAmount} onChange={e=>setAdjustAmount(e.target.value)} style={{...inp,fontSize:10,padding:'4px 8px'}}/>
                 </div>
               </div>
             </div>
 
-            <div style={{background:'linear-gradient(135deg,#0f2a5c,#1e4db7)',borderRadius:12,padding:16,color:'#fff'}}>
-              <div style={{fontSize:11,opacity:0.75,marginBottom:4}}>お見積金額（税込）</div>
-              <div style={{fontSize:26,fontWeight:900,marginBottom:8}}>¥{total.toLocaleString()}</div>
-              <div style={{fontSize:11,opacity:0.7,display:'grid',gap:2}}>
+            {/* 合計・PDFボタン */}
+            <div style={{background:'linear-gradient(135deg,#0f2a5c,#1e4db7)',borderRadius:10,padding:14,color:'#fff',flexShrink:0}}>
+              <div style={{fontSize:10,opacity:0.75,marginBottom:2}}>お見積金額（税込）</div>
+              <div style={{fontSize:24,fontWeight:900,marginBottom:6}}>¥{total.toLocaleString()}</div>
+              <div style={{fontSize:10,opacity:0.7,display:'grid',gap:1}}>
                 <div style={{display:'flex',justifyContent:'space-between'}}><span>商品小計</span><span>¥{cartSub.toLocaleString()}</span></div>
                 {staffCost>0&&<div style={{display:'flex',justifyContent:'space-between'}}><span>スタッフ費</span><span>¥{staffCost.toLocaleString()}</span></div>}
                 {adj!==0&&<div style={{display:'flex',justifyContent:'space-between'}}><span>{adjustLabel}</span><span>{adj<0?'-':''}¥{Math.abs(adj).toLocaleString()}</span></div>}
@@ -2589,13 +2650,49 @@ function QuotePage({addActivity, user}){
               <button disabled={cart.length===0} onClick={()=>{
                 addActivity&&addActivity({id:genId('Q'),icon:'📋',title:'リース見積もり',company:withHonorific(customerName||'お客様'),status:'作成中',time:nowTime(),total});
                 setShowPdf(true);
-              }} style={{width:'100%',marginTop:10,background:cart.length?'#fff':'rgba(255,255,255,0.3)',color:cart.length?C.navy:'rgba(255,255,255,0.5)',border:'none',borderRadius:8,padding:11,fontSize:13,fontWeight:700,cursor:cart.length?'pointer':'default'}}>
+              }} style={{width:'100%',marginTop:8,background:cart.length?'#fff':'rgba(255,255,255,0.3)',color:cart.length?C.navy:'rgba(255,255,255,0.5)',border:'none',borderRadius:8,padding:10,fontSize:12,fontWeight:700,cursor:cart.length?'pointer':'default'}}>
                 📄 PDF見積書を作成
               </button>
-
             </div>
+
           </div>
         </div>
+
+        {/* ===== 右パネル：リアルタイム見積書プレビュー ===== */}
+        <div style={{overflowY:'auto',background:'#e8edf2',padding:'24px 32px'}}>
+          {cart.length===0?(
+            <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',color:'var(--text-muted)',gap:12}}>
+              <div style={{fontSize:48,opacity:0.3}}>📄</div>
+              <div style={{fontSize:14,fontWeight:700,opacity:0.4}}>商品を追加すると見積書がここに表示されます</div>
+            </div>
+          ):(
+            <div style={{maxWidth:680,margin:'0 auto'}}>
+              {/* プレビューラベル */}
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
+                <div style={{fontSize:11,fontWeight:700,color:'#64748b',background:'#fff',border:'1px solid #cbd5e1',borderRadius:20,padding:'4px 14px'}}>
+                  📋 プレビュー（リアルタイム）
+                </div>
+                <div style={{fontSize:11,color:'#94a3b8'}}>PDF出力時は左下のボタンから</div>
+              </div>
+              {/* 見積書本体（影付き白紙） */}
+              <div style={{background:'#fff',borderRadius:4,boxShadow:'0 4px 24px rgba(0,0,0,0.12)',padding:'32px 36px',minHeight:600}}>
+                <LeasePrintContent data={{
+                  items:cart, days, setupMode,
+                  staffFull, staffHalf, transportNote,
+                  adjustLabel, adjustAmount:parseInt(adjustAmount)||0,
+                  customerName, customerHonorific, projectName,
+                  dateStr:dateStr||new Date().toISOString().slice(0,10),
+                  staffLastName,
+                  cartSub, staffCost, adj, subTotal, tax, total,
+                  calcExt, calcItemSetup, itemTotal, docType,
+                  setupDateFrom, setupDateTo, eventDateFrom, eventDateTo, teardownDateFrom, teardownDateTo,
+                  setupUndef, eventUndef, teardownUndef,
+                }}/>
+              </div>
+            </div>
+          )}
+        </div>
+
       </div>
     </div>
   );
