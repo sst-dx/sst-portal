@@ -2275,18 +2275,41 @@ function Dashboard({setPage, activityLog, todayShiftCount=0, user}){
     </div>
   );
 }
-function QuotePage({addActivity, user}){
-  const [cart,setCart]=useState([]);
+function QuotePage({addActivity, user, editDocData, onEditComplete}){
+  // editDocDataからカートを復元するヘルパー
+  const buildCartFromDoc=(doc)=>{
+    if(!doc||!Array.isArray(doc.items)) return [];
+    return doc.items.map(it=>{
+      const master = PRICE_TABLE[it.name];
+      if(master) return {name:it.name, qty:it.qty||1, ...master};
+      // マスターにない場合はカスタム扱い
+      return {name:it.name, qty:it.qty||1, base:0, ext1w:0, ext4w:0, ext4wplus:0, setup:0, cat:it.cat||'その他', spec:'', custom:true, id:'restored-'+it.name};
+    });
+  };
+
+  const [cart,setCart]=useState(()=>buildCartFromDoc(editDocData));
   const [selCat,setSelCat]=useState(null);
   const [search,setSearch]=useState('');
 
   const [days,setDays]=useState(1);
   const [setupMode,setSetupMode]=useState('none');
-  const [quoteNote,setQuoteNote]=useState('');
-  const [customerName,setCustomerName]=useState('');
+  const [quoteNote,setQuoteNote]=useState(()=>editDocData?.note||'');
+  const [customerName,setCustomerName]=useState(()=>editDocData?.customer_name||'');
   const [customerHonorific,setCustomerHonorific]=useState('御中');
-  const [projectName,setProjectName]=useState('');
-  const [dateStr,setDateStr]=useState('');
+  const [projectName,setProjectName]=useState(()=>editDocData?.project_name||'');
+  const [dateStr,setDateStr]=useState(()=>editDocData?.date_str||'');
+
+  // 編集モードの初期化が一度だけ行われるよう管理
+  const editInitialized=React.useRef(false);
+  React.useEffect(()=>{
+    if(editDocData&&!editInitialized.current){
+      editInitialized.current=true;
+    }
+    if(!editDocData&&editInitialized.current){
+      // クリア
+      editInitialized.current=false;
+    }
+  },[editDocData]);
   const [setupDateFrom,setSetupDateFrom]=useState('');
   const [setupDateTo,setSetupDateTo]=useState('');
   const [eventDateFrom,setEventDateFrom]=useState('');
@@ -2424,8 +2447,17 @@ function QuotePage({addActivity, user}){
           }}/>
         </PrintModal>
       )}
+      {/* 編集モードバナー */}
+      {editDocData&&(
+        <div style={{background:'#fffbe6',borderBottom:'2px solid #f59e0b',padding:'8px 20px',display:'flex',alignItems:'center',gap:10,fontSize:13,color:'#92400e',fontWeight:700}}>
+          ✏️ 「{editDocData.customer_name||'—'}」の{editDocData.doc_type==='invoice'?'請求書':'見積書'}を編集中
+          <button onClick={onEditComplete} style={{marginLeft:'auto',padding:'4px 14px',border:'1.5px solid #92400e',borderRadius:6,background:'transparent',color:'#92400e',fontSize:12,fontWeight:700,cursor:'pointer'}}>
+            ✕ 編集をキャンセル
+          </button>
+        </div>
+      )}
       {/* 左右分割メインレイアウト */}
-      <div style={{display:'grid',gridTemplateColumns:'58% 42%',height:'calc(100vh - 56px)',overflow:'hidden'}}>
+      <div style={{display:'grid',gridTemplateColumns:'58% 42%',height:editDocData?'calc(100vh - 56px - 40px)':'calc(100vh - 56px)',overflow:'hidden'}}>
 
         {/* ===== 左パネル：商品選択・設定 ===== */}
         <div style={{overflowY:'auto',borderRight:'1px solid var(--border)',background:'var(--bg)',display:'flex',flexDirection:'column'}}>
@@ -4946,7 +4978,7 @@ function LoginPage({onLogin}){
 }
 
 // ===== 発行履歴 詳細モーダル =====
-function DocDetailModal({doc, onClose, onSaved}){
+function DocDetailModal({doc, onClose, onSaved, onEdit}){
   const [editCustomer, setEditCustomer] = useState(doc.customer_name||'');
   const [editProject, setEditProject] = useState(doc.project_name||'');
   const [editNote, setEditNote] = useState(doc.note||'');
@@ -4962,11 +4994,20 @@ function DocDetailModal({doc, onClose, onSaved}){
 
   const handleSave = async()=>{
     setSaving(true);
-    const {error} = await supabase.from('documents').update({
+    // まずnote込みで試行
+    let {error} = await supabase.from('documents').update({
       customer_name: editCustomer,
       project_name: editProject,
       note: editNote,
     }).eq('id', doc.id);
+    // noteカラムがない場合はnoteを除いて再試行
+    if(error&&error.message&&error.message.includes('note')){
+      const r2 = await supabase.from('documents').update({
+        customer_name: editCustomer,
+        project_name: editProject,
+      }).eq('id', doc.id);
+      error = r2.error;
+    }
     setSaving(false);
     if(error){ alert('保存エラー: '+error.message); return; }
     setSaved(true);
@@ -5061,6 +5102,12 @@ function DocDetailModal({doc, onClose, onSaved}){
               📄 PDF開く
             </a>
           )}
+          {onEdit&&(doc.doc_type==='estimate'||doc.doc_type==='invoice')&&(
+            <button onClick={()=>{onClose();onEdit(doc);}}
+              style={{padding:'8px 20px',border:'1.5px solid #1e7a3d',borderRadius:7,background:'#e8f5ee',color:'#1e7a3d',fontSize:13,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:5}}>
+              ✏️ 編集する
+            </button>
+          )}
           <button onClick={handleSave} disabled={saving}
             style={{padding:'8px 24px',border:'none',borderRadius:7,background:saved?'var(--green)':C.navy,color:'#fff',fontSize:13,fontWeight:700,cursor:'pointer',marginLeft:'auto',transition:'background 0.2s'}}>
             {saving?'保存中…':saved?'✓ 保存しました':'変更を保存'}
@@ -5072,7 +5119,7 @@ function DocDetailModal({doc, onClose, onSaved}){
 }
 
 // ===== 発行履歴画面 =====
-function HistoryPage(){
+function HistoryPage({onEditDoc}){
   const [docs,setDocs]=useState([]);
   const [loading,setLoading]=useState(true);
   const [filter,setFilter]=useState('all');
@@ -5112,7 +5159,7 @@ function HistoryPage(){
 
   return(
     <div style={{maxWidth:1100,margin:'0 auto',padding:'24px 20px'}}>
-      {selectedDoc&&<DocDetailModal doc={selectedDoc} onClose={()=>setSelectedDoc(null)} onSaved={(u)=>{handleSaved(u);setSelectedDoc(u);}}/>}
+      {selectedDoc&&<DocDetailModal doc={selectedDoc} onClose={()=>setSelectedDoc(null)} onSaved={(u)=>{handleSaved(u);setSelectedDoc(u);}} onEdit={onEditDoc}/>}
 
       <div style={{fontSize:12,color:'var(--text-sub)',marginBottom:6}}>ホーム › 発行履歴</div>
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:20}}>
@@ -5317,6 +5364,7 @@ function App(){
   const [user,setUser]=useState(null);
   const [authLoading,setAuthLoading]=useState(true);
   const [activityLog,setActivityLog]=useState(RECENT_QUOTES);
+  const [editDocData,setEditDocData]=useState(null);
 
   // セッション確認
   useEffect(()=>{
@@ -5348,22 +5396,27 @@ function App(){
 
   if(!user) return <LoginPage onLogin={setUser}/>;
 
+  const handleEditDoc=(doc)=>{
+    setEditDocData(doc);
+    setPage('quote');
+  };
+
   const pages={
     dashboard:<Dashboard setPage={setPage} activityLog={activityLog} user={user}/>,
-    quote:<QuotePage addActivity={addActivity} user={user}/>,
+    quote:<QuotePage key={editDocData?.id||'new'} addActivity={addActivity} user={user} editDocData={editDocData} onEditComplete={()=>setEditDocData(null)}/>,
       awning:<AwningPage addActivity={addActivity}/>,
       fabric:<FabricPage/>,
   free:<FreePage/>,
     pawlo:<PawloPage addActivity={addActivity}/>,
     curtain:<CurtainPage/>,
     iron:<IronPage/>,
-    history:<HistoryPage/>,
+    history:<HistoryPage onEditDoc={handleEditDoc}/>,
     mypage:<MyPage user={user}/>,
   };
   return(
     <div>
       <NavBar page={page} setPage={setPage} user={user} onLogout={handleLogout}/>
-      <div className="fade-in" key={page}>{pages[page]||pages.dashboard}</div>
+      <div className="fade-in" key={page+(editDocData?.id||'')}>{pages[page]||pages.dashboard}</div>
 
       <div style={{
         textAlign:'center',padding:'18px 20px',
