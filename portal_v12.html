@@ -1373,7 +1373,7 @@ function LeasePrintContent({ data }){
   // 表示する行（null除く）
   const specRows=[
     ['設営日', dateText(setupUndef,setupDateFrom,setupDateTo)],
-    ['イベント開催日', dateText(eventUndef,eventDateFrom,eventDateTo)],
+    ['本番日', dateText(eventUndef,eventDateFrom,eventDateTo)],
     ['撤去日', dateText(teardownUndef,teardownDateFrom,teardownDateTo)],
     ['利用日数', eventDays ? `${eventDays} 日間` : `${days} 日間`],
     setupMode!=='none'?['設営・撤去', {both:'設営・撤去あり',setup:'設営のみ',teardown:'撤去のみ'}[setupMode]]:null,
@@ -2410,16 +2410,37 @@ function QuotePage({addActivity, user}){
                 <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:6}}>
                   <div>
                     <div style={{fontSize:10,color:'var(--text-sub)',marginBottom:2,fontWeight:700}}>見積日</div>
-                    <input type="date" value={dateStr} onChange={e=>setDateStr(e.target.value)} style={{...inp,fontSize:11,padding:'5px 8px'}}/>
+                    <div style={{display:'flex',gap:4,alignItems:'center'}}>
+                      <input type="date" value={dateStr} onChange={e=>setDateStr(e.target.value)} style={{...inp,fontSize:11,padding:'5px 8px',flex:1}}/>
+                      <button onClick={()=>setDateStr(new Date().toISOString().slice(0,10))}
+                        style={{padding:'4px 7px',border:'1.5px solid var(--blue)',borderRadius:5,background:'var(--blue-light)',color:'var(--blue)',fontSize:10,fontWeight:800,cursor:'pointer',whiteSpace:'nowrap',lineHeight:1.2}}>今日</button>
+                    </div>
                   </div>
                   <div>
                     <div style={{fontSize:10,color:'var(--text-sub)',marginBottom:2,fontWeight:700}}>利用日数</div>
-                    <div style={{display:'flex',alignItems:'center',gap:6}}>
-                      <button onClick={()=>setDays(d=>Math.max(1,d-1))} style={{width:24,height:24,border:'1px solid var(--border)',borderRadius:5,background:'#fff',cursor:'pointer',fontWeight:700,fontSize:14}}>－</button>
-                      <span style={{fontSize:16,fontWeight:900,color:C.navy,minWidth:22,textAlign:'center'}}>{days}</span>
-                      <button onClick={()=>setDays(d=>d+1)} style={{width:24,height:24,border:'1px solid var(--border)',borderRadius:5,background:'#fff',cursor:'pointer',fontWeight:700,fontSize:14}}>＋</button>
-                      <span style={{fontSize:11,color:'var(--text-sub)'}}>日間</span>
-                    </div>
+                    {(()=>{
+                      const autoD = (!eventUndef && eventDateFrom && eventDateTo)
+                        ? Math.round((new Date(eventDateTo)-new Date(eventDateFrom))/(86400000))+1
+                        : (!eventUndef && eventDateFrom ? 1 : null);
+                      if(autoD){
+                        return(
+                          <div style={{display:'flex',alignItems:'center',gap:6,height:30}}>
+                            <div style={{background:'#eff6ff',border:'1.5px solid var(--blue)',borderRadius:6,padding:'3px 10px',fontSize:13,fontWeight:900,color:C.blue,lineHeight:1}}>
+                              {autoD}<span style={{fontSize:10,fontWeight:600,marginLeft:2}}>日間</span>
+                            </div>
+                            <span style={{fontSize:9,color:'var(--text-muted)'}}>開催日から自動</span>
+                          </div>
+                        );
+                      }
+                      return(
+                        <div style={{display:'flex',alignItems:'center',gap:6}}>
+                          <button onClick={()=>setDays(d=>Math.max(1,d-1))} style={{width:24,height:24,border:'1px solid var(--border)',borderRadius:5,background:'#fff',cursor:'pointer',fontWeight:700,fontSize:14}}>－</button>
+                          <span style={{fontSize:16,fontWeight:900,color:C.navy,minWidth:22,textAlign:'center'}}>{days}</span>
+                          <button onClick={()=>setDays(d=>d+1)} style={{width:24,height:24,border:'1px solid var(--border)',borderRadius:5,background:'#fff',cursor:'pointer',fontWeight:700,fontSize:14}}>＋</button>
+                          <span style={{fontSize:11,color:'var(--text-sub)'}}>日間</span>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
                 <div>
