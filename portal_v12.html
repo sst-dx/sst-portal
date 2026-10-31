@@ -911,7 +911,7 @@ function calcItemSetup(p,qty,mode){
 }
 function calcTotal(item,days,setupMode){
   const p=PRICE_TABLE[item.name];if(!p)return 0;
-  return p.base*item.qty + calcItemSetup(p,item.qty,setupMode) + calcExt(p,days)*Math.max(0,days-1)*item.qty;
+  return p.base*item.qty + calcItemSetup(p,item.qty,setupMode) + calcExt(p,days)*item.qty;
 }
 // 共通 PDF帳票モーダル（A4縦1枚・顧客提出用）
 function HankoSeal(){
