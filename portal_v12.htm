@@ -1442,7 +1442,7 @@ function FabricPrintContent({ results, extraItems=[], adjust=0, customer='', sub
       allLines.push({rowType:'header', item:curLabel});
       r.splitParts.forEach((p,pi)=>{
         const posLabel=pi===0?'上部':pi===r.splitParts.length-1?'下部':'中部'+pi;
-        allLines.push({rowType:'child', item:posLabel, detail:`${p.fabric?p.fabric.no+'番 '+p.fabric.name:'－'}　${p.yoko}mm×${p.h}mm＝${p.area.toFixed(3)}㎡${r.gradeId!=='none'?'　'+GRADES.find(g=>g.id===r.gradeId).label:''}`, qty:`${p.area.toFixed(3)}㎡`, unit:`${p.fabric?p.fabric.designPrice.toLocaleString():0}円/㎡`, amount:`${(p.cost*(r.fabricQty||1)).toLocaleString()}円`});
+        allLines.push({rowType:'child', item:posLabel, detail:`${p.fabric?p.fabric.name:'－'}　${p.yoko}mm×${p.h}mm＝${p.area.toFixed(3)}㎡`, qty:`${p.area.toFixed(3)}㎡`, unit:`${p.fabric?p.fabric.designPrice.toLocaleString():0}円/㎡`, amount:`${(p.cost*(r.fabricQty||1)).toLocaleString()}円`});
       });
       if(r.hasMT) allLines.push({rowType:'child', item:'マジックテープ', detail:`${r.mtLen}m × ¥2,200`, qty:`${r.mtLen}m`, unit:'2,200円/m', amount:`${r.mtCost.toLocaleString()}円`});
       if(r.hasZip) allLines.push({rowType:'child', item:'ファスナー', detail:`H${r.zipH}mm × ${r.zipCnt}本（${r.zipUnits}単位）`, qty:`${r.zipUnits}単位`, unit:'1,200円/0.5m', amount:`${r.zipCost.toLocaleString()}円`});
