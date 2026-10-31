@@ -1367,7 +1367,7 @@ function LeasePrintContent({ data }){
     const setup=item.custom ? 0 : calcItemSetup(p,item.qty,setupMode);
     const ext=item.custom ? 0 : calcExt(p,displayDays)*item.qty;
     const tot=Math.floor(base+setup+ext);
-    let detail=item.custom ? (item.spec||'カスタム商品') : p.spec;
+    let detail=item.custom ? (item.spec||'') : p.spec;
     if(!item.custom && setupMode!=='none') detail+=` ／ ${setupShort[setupMode]}`;
     if(!item.custom && displayDays>1) detail+=` ／ 延長${displayDays-1}日`;
     return {item:item.name, detail, qty:`${item.qty}`, unit:`${p.base.toLocaleString()}円`, amount:`${tot.toLocaleString()}円`};
