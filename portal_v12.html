@@ -2404,7 +2404,7 @@ function QuotePage({addActivity, user}){
         </PrintModal>
       )}
       {/* 左右分割メインレイアウト */}
-      <div style={{display:'grid',gridTemplateColumns:'420px 1fr',height:'calc(100vh - 56px)',overflow:'hidden'}}>
+      <div style={{display:'grid',gridTemplateColumns:'58% 42%',height:'calc(100vh - 56px)',overflow:'hidden'}}>
 
         {/* ===== 左パネル：商品選択・設定 ===== */}
         <div style={{overflowY:'auto',borderRight:'1px solid var(--border)',background:'var(--bg)',display:'flex',flexDirection:'column'}}>
@@ -2662,22 +2662,23 @@ function QuotePage({addActivity, user}){
         </div>
 
         {/* ===== 右パネル：リアルタイム見積書プレビュー ===== */}
-        <div style={{overflowY:'auto',background:'#e8edf2',padding:'24px 32px'}}>
+        <div style={{overflowY:'auto',background:'#e8edf2',padding:'12px 16px'}}>
           {cart.length===0?(
             <div style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',height:'100%',color:'var(--text-muted)',gap:12}}>
               <div style={{fontSize:48,opacity:0.3}}>📄</div>
               <div style={{fontSize:14,fontWeight:700,opacity:0.4}}>商品を追加すると見積書がここに表示されます</div>
             </div>
           ):(
-            <div style={{maxWidth:680,margin:'0 auto'}}>
+            <div style={{width:'100%'}}>
               {/* プレビューラベル */}
-              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:12}}>
-                <div style={{fontSize:11,fontWeight:700,color:'#64748b',background:'#fff',border:'1px solid #cbd5e1',borderRadius:20,padding:'4px 14px'}}>
+              <div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:8}}>
+                <div style={{fontSize:10,fontWeight:700,color:'#64748b',background:'#fff',border:'1px solid #cbd5e1',borderRadius:20,padding:'3px 10px'}}>
                   📋 プレビュー（リアルタイム）
                 </div>
-                <div style={{fontSize:11,color:'#94a3b8'}}>PDF出力時は左下のボタンから</div>
+                <div style={{fontSize:10,color:'#94a3b8'}}>PDF出力は左下から</div>
               </div>
-              {/* 見積書本体（影付き白紙） */}
+              {/* 見積書本体：縮小表示 */}
+              <div style={{transformOrigin:'top left',transform:'scale(0.62)',width:'161%',pointerEvents:'none'}}>
               <div style={{background:'#fff',borderRadius:4,boxShadow:'0 4px 24px rgba(0,0,0,0.12)',padding:'32px 36px',minHeight:600}}>
                 <LeasePrintContent data={{
                   items:cart, days, setupMode,
@@ -2692,6 +2693,7 @@ function QuotePage({addActivity, user}){
                   setupUndef, eventUndef, teardownUndef,
                 }}/>
               </div>
+              </div>{/* /縮小コンテナ */}
             </div>
           )}
         </div>
