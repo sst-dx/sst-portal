@@ -1386,7 +1386,6 @@ function LeasePrintContent({ data }){
         {transportNote ? `運搬費：${transportNote}　` : '運搬費は現場状況により別途お見積りいたします。　'}
         利用日数・設営条件により金額が変動する場合があります。
       </BillNote>
-      {docType!=='invoice'&&<BillConfirm/>}
       <BillFooterName/>
       {docType==='invoice'&&<BillPaymentInfo/>}
     </>
