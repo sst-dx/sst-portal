@@ -1930,6 +1930,177 @@ function TeamMemo({user}){
   );
 }
 
+function PersonalTodo({user}){
+  const [todos,setTodos]=React.useState([]);
+  const [input,setInput]=React.useState('');
+  const [loading,setLoading]=React.useState(true);
+
+  const refetch=async()=>{
+    if(!window._supabaseClient||!user)return;
+    const{data}=await window._supabaseClient.from('personal_todos').select('*').eq('user_id',user.id).order('created_at',{ascending:false}).limit(50);
+    if(data)setTodos(data);
+  };
+
+  React.useEffect(()=>{
+    if(!window._supabaseClient||!user)return;
+    setLoading(true);
+    refetch().then(()=>setLoading(false));
+    let sub;
+    try{
+      sub=window._supabaseClient.channel('personal_todos_ch')
+        .on('postgres_changes',{event:'*',schema:'public',table:'personal_todos',filter:`user_id=eq.${user.id}`},()=>refetch())
+        .subscribe();
+    }catch(e){}
+    return()=>{try{sub&&sub.unsubscribe();}catch{}};
+  },[user]);
+
+  const add=async()=>{
+    const t=input.trim();if(!t||!user||!window._supabaseClient)return;
+    const tmp={id:'tmp-'+Date.now(),content:t,user_id:user.id,done:false,created_at:new Date().toISOString()};
+    setTodos(prev=>[tmp,...prev]);setInput('');
+    const{error}=await window._supabaseClient.from('personal_todos').insert({content:t,user_id:user.id,done:false});
+    if(error)setTodos(prev=>prev.filter(x=>x.id!==tmp.id));else refetch();
+  };
+  const toggle=async(t)=>{
+    setTodos(prev=>prev.map(x=>x.id===t.id?{...x,done:!x.done}:x));
+    await window._supabaseClient.from('personal_todos').update({done:!t.done}).eq('id',t.id);
+    refetch();
+  };
+  const remove=async(t)=>{
+    setTodos(prev=>prev.filter(x=>x.id!==t.id));
+    await window._supabaseClient.from('personal_todos').delete().eq('id',t.id);
+  };
+  const remaining=todos.filter(x=>!x.done).length;
+  return(
+    <div style={{background:C.surface,borderRadius:12,border:`1px solid ${C.border}`,overflow:'hidden',boxShadow:'0 1px 3px rgba(15,42,92,0.07)'}}>
+      <div style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',gap:6}}>
+        <span style={{width:3,height:13,background:'#f59e0b',borderRadius:2,display:'inline-block'}}/>
+        <span style={{fontSize:13,fontWeight:700,color:C.navy}}>個人ToDo</span>
+        {remaining>0&&<span style={{fontSize:10,background:'#f59e0b',color:'#fff',borderRadius:10,padding:'1px 7px',fontWeight:700,marginLeft:2}}>{remaining}</span>}
+        <span style={{fontSize:10,color:C.textMuted,marginLeft:4}}>自分だけに見えます</span>
+      </div>
+      <div style={{padding:'10px 12px',borderBottom:`1px solid ${C.border}`,display:'flex',gap:6}}>
+        <input value={input} onChange={e=>setInput(e.target.value)}
+          onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();add();}}}
+          placeholder="タスクを追加… (Enterで追加)" style={{
+          flex:1,border:`1px solid ${C.border}`,borderRadius:7,padding:'6px 10px',
+          fontSize:12,background:C.bg,outline:'none',color:C.navy,
+        }}/>
+        <button onClick={add} style={{
+          background:'#f59e0b',color:'#fff',border:'none',borderRadius:7,
+          padding:'6px 12px',fontSize:12,fontWeight:700,cursor:'pointer',
+        }}>追加</button>
+      </div>
+      <div style={{maxHeight:200,overflowY:'auto'}}>
+        {loading&&<div style={{padding:'16px',textAlign:'center',fontSize:12,color:C.textMuted}}>読み込み中…</div>}
+        {!loading&&todos.length===0&&<div style={{padding:'16px',textAlign:'center',fontSize:12,color:C.textMuted}}>タスクはありません</div>}
+        {todos.map(t=>(
+          <div key={t.id} style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',borderBottom:`1px solid ${C.borderLight}`,background:t.done?'#fafafa':'#fff'}}>
+            <input type="checkbox" checked={t.done} onChange={()=>toggle(t)} style={{accentColor:'#f59e0b',flexShrink:0,cursor:'pointer'}}/>
+            <span style={{flex:1,fontSize:12,color:t.done?C.textMuted:C.navy,textDecoration:t.done?'line-through':'none',wordBreak:'break-all'}}>{t.content}</span>
+            <button onClick={()=>remove(t)} style={{background:'none',border:'none',color:C.textMuted,cursor:'pointer',fontSize:14,lineHeight:1,padding:'0 2px',flexShrink:0}}>×</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TeamTodo({user}){
+  const [todos,setTodos]=React.useState([]);
+  const [input,setInput]=React.useState('');
+  const [assignee,setAssignee]=React.useState('');
+  const [loading,setLoading]=React.useState(true);
+  const displayName=user?(user.user_metadata?.display_name||user.user_metadata?.full_name||'名前未設定'):'不明';
+  const staffList=['金城 英樹','宮城 厚子','仲本 清貴','宇栄原 裕治','仲村渠 明美','又吉 宏美','石川 琴美','中田 壱清'];
+
+  const refetch=async()=>{
+    if(!window._supabaseClient)return;
+    const{data}=await window._supabaseClient.from('team_todos').select('*').order('created_at',{ascending:false}).limit(50);
+    if(data)setTodos(data);
+  };
+
+  React.useEffect(()=>{
+    if(!window._supabaseClient)return;
+    setLoading(true);
+    refetch().then(()=>setLoading(false));
+    let sub;
+    try{
+      sub=window._supabaseClient.channel('team_todos_ch')
+        .on('postgres_changes',{event:'*',schema:'public',table:'team_todos'},()=>refetch())
+        .subscribe();
+    }catch(e){}
+    return()=>{try{sub&&sub.unsubscribe();}catch{}};
+  },[]);
+
+  const add=async()=>{
+    const t=input.trim();if(!t||!user||!window._supabaseClient)return;
+    const tmp={id:'tmp-'+Date.now(),content:t,author_id:user.id,author_name:displayName,assignee_name:assignee||null,done:false,created_at:new Date().toISOString()};
+    setTodos(prev=>[tmp,...prev]);setInput('');setAssignee('');
+    const{error}=await window._supabaseClient.from('team_todos').insert({content:t,author_id:user.id,author_name:displayName,assignee_name:assignee||null,done:false});
+    if(error)setTodos(prev=>prev.filter(x=>x.id!==tmp.id));else refetch();
+  };
+  const toggle=async(t)=>{
+    setTodos(prev=>prev.map(x=>x.id===t.id?{...x,done:!x.done}:x));
+    await window._supabaseClient.from('team_todos').update({done:!t.done}).eq('id',t.id);
+    refetch();
+  };
+  const remove=async(t)=>{
+    if(t.author_id!==user?.id)return;
+    setTodos(prev=>prev.filter(x=>x.id!==t.id));
+    await window._supabaseClient.from('team_todos').delete().eq('id',t.id);
+  };
+  const remaining=todos.filter(x=>!x.done).length;
+  return(
+    <div style={{background:C.surface,borderRadius:12,border:`1px solid ${C.border}`,overflow:'hidden',boxShadow:'0 1px 3px rgba(15,42,92,0.07)'}}>
+      <div style={{padding:'12px 16px',borderBottom:`1px solid ${C.border}`,display:'flex',alignItems:'center',gap:6}}>
+        <span style={{width:3,height:13,background:'#6366f1',borderRadius:2,display:'inline-block'}}/>
+        <span style={{fontSize:13,fontWeight:700,color:C.navy}}>チームToDo</span>
+        {remaining>0&&<span style={{fontSize:10,background:'#6366f1',color:'#fff',borderRadius:10,padding:'1px 7px',fontWeight:700,marginLeft:2}}>{remaining}</span>}
+        <span style={{fontSize:10,color:C.textMuted,marginLeft:4}}>全員に共有されます</span>
+      </div>
+      <div style={{padding:'10px 12px',borderBottom:`1px solid ${C.border}`,display:'flex',flexDirection:'column',gap:6}}>
+        <div style={{display:'flex',gap:6}}>
+          <input value={input} onChange={e=>setInput(e.target.value)}
+            onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();add();}}}
+            placeholder="チームタスクを追加… (Enterで追加)" style={{
+            flex:1,border:`1px solid ${C.border}`,borderRadius:7,padding:'6px 10px',
+            fontSize:12,background:C.bg,outline:'none',color:C.navy,
+          }}/>
+          <button onClick={add} style={{
+            background:'#6366f1',color:'#fff',border:'none',borderRadius:7,
+            padding:'6px 12px',fontSize:12,fontWeight:700,cursor:'pointer',
+          }}>追加</button>
+        </div>
+        <select value={assignee} onChange={e=>setAssignee(e.target.value)} style={{
+          border:`1px solid ${C.border}`,borderRadius:7,padding:'5px 8px',fontSize:11,
+          background:C.bg,color:assignee?C.navy:C.textMuted,outline:'none',
+        }}>
+          <option value="">担当者を選択（任意）</option>
+          {staffList.map(s=><option key={s} value={s}>{s}</option>)}
+        </select>
+      </div>
+      <div style={{maxHeight:220,overflowY:'auto'}}>
+        {loading&&<div style={{padding:'16px',textAlign:'center',fontSize:12,color:C.textMuted}}>読み込み中…</div>}
+        {!loading&&todos.length===0&&<div style={{padding:'16px',textAlign:'center',fontSize:12,color:C.textMuted}}>チームタスクはありません</div>}
+        {todos.map(t=>(
+          <div key={t.id} style={{display:'flex',alignItems:'flex-start',gap:8,padding:'8px 12px',borderBottom:`1px solid ${C.borderLight}`,background:t.done?'#fafafa':'#fff'}}>
+            <input type="checkbox" checked={t.done} onChange={()=>toggle(t)} style={{marginTop:2,accentColor:'#6366f1',flexShrink:0,cursor:'pointer'}}/>
+            <div style={{flex:1,minWidth:0}}>
+              {t.assignee_name&&<div style={{fontSize:10,color:'#6366f1',fontWeight:700,marginBottom:1}}>→ {t.assignee_name}</div>}
+              <span style={{fontSize:12,color:t.done?C.textMuted:C.navy,textDecoration:t.done?'line-through':'none',wordBreak:'break-all'}}>{t.content}</span>
+              <div style={{fontSize:10,color:C.textMuted,marginTop:2}}>{t.author_name}</div>
+            </div>
+            {t.author_id===user?.id&&(
+              <button onClick={()=>remove(t)} style={{background:'none',border:'none',color:C.textMuted,cursor:'pointer',fontSize:14,lineHeight:1,padding:'0 2px',flexShrink:0}}>×</button>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function Dashboard({setPage, activityLog, todayShiftCount=0, user}){
   const stats=[
     {label:'未対応問い合わせ',value:'-',unit:'件',sub:'案件管理機能で連携予定',
@@ -2077,6 +2248,8 @@ function Dashboard({setPage, activityLog, todayShiftCount=0, user}){
         <div style={{display:'flex',flexDirection:'column',gap:16}}>
           <PersonalMemo/>
           <TeamMemo user={user}/>
+          <PersonalTodo user={user}/>
+          <TeamTodo user={user}/>
         </div>
       </div>
     </div>
