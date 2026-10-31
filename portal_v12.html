@@ -4885,26 +4885,13 @@ function LoginPage({onLogin}){
   );
 }
 
-// ===== 発行履歴画面 =====
-function HistoryPage(){
-  const [docs,setDocs]=useState([]);
-  const [loading,setLoading]=useState(true);
-  const [filter,setFilter]=useState('all');
-
-  useEffect(()=>{
-    (async()=>{
-      setLoading(true);
-      const {data,error} = await supabase
-        .from('documents')
-        .select('*')
-        .order('created_at',{ascending:false})
-        .limit(200);
-      if(!error) setDocs(data||[]);
-      setLoading(false);
-    })();
-  },[]);
-
-  const filtered = filter==='all' ? docs : docs.filter(d=>d.doc_type===filter);
+// ===== 発行履歴 詳細モーダル =====
+function DocDetailModal({doc, onClose, onSaved}){
+  const [editCustomer, setEditCustomer] = useState(doc.customer_name||'');
+  const [editProject, setEditProject] = useState(doc.project_name||'');
+  const [editNote, setEditNote] = useState(doc.note||'');
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   const fmtDate=(iso)=>{
     if(!iso) return '—';
@@ -4913,14 +4900,160 @@ function HistoryPage(){
   };
   const fmtMoney=(n)=>n!=null?'¥'+Number(n).toLocaleString():'—';
 
+  const handleSave = async()=>{
+    setSaving(true);
+    const {error} = await supabase.from('documents').update({
+      customer_name: editCustomer,
+      project_name: editProject,
+      note: editNote,
+    }).eq('id', doc.id);
+    setSaving(false);
+    if(error){ alert('保存エラー: '+error.message); return; }
+    setSaved(true);
+    onSaved({...doc, customer_name:editCustomer, project_name:editProject, note:editNote});
+    setTimeout(()=>setSaved(false), 2000);
+  };
+
+  const items = Array.isArray(doc.items) ? doc.items : [];
+  const typeLabel = doc.doc_type==='invoice'?'請求書': doc.doc_type==='fabric_estimate'?'生地見積書':'見積書';
+  const typeBg = doc.doc_type==='invoice'?'#fef3e2': doc.doc_type==='fabric_estimate'?'#e8f7f0':'#e0e9f8';
+  const typeColor = doc.doc_type==='invoice'?'#92400e': doc.doc_type==='fabric_estimate'?'#0e6b42':'#1e4db7';
+
+  return(
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:9000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div style={{background:'#fff',borderRadius:14,width:'100%',maxWidth:640,maxHeight:'90vh',display:'flex',flexDirection:'column',boxShadow:'0 20px 60px rgba(0,0,0,0.25)'}}>
+        {/* ヘッダー */}
+        <div style={{padding:'16px 20px',borderBottom:'1px solid var(--border)',display:'flex',alignItems:'center',gap:10,flexShrink:0}}>
+          <span style={{display:'inline-block',padding:'3px 12px',borderRadius:5,fontSize:12,fontWeight:700,background:typeBg,color:typeColor}}>{typeLabel}</span>
+          <span style={{fontSize:13,color:'var(--text-sub)',marginLeft:4}}>{fmtDate(doc.created_at)}</span>
+          <span style={{fontSize:12,color:'var(--text-muted)',marginLeft:'auto'}}>担当: {doc.created_by_name||'—'}</span>
+          <button onClick={onClose} style={{background:'none',border:'none',fontSize:20,cursor:'pointer',color:'var(--text-muted)',lineHeight:1,marginLeft:8}}>✕</button>
+        </div>
+
+        {/* 本文 スクロール */}
+        <div style={{overflowY:'auto',flex:1,padding:'20px'}}>
+
+          {/* 編集フィールド */}
+          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12,marginBottom:20}}>
+            <div>
+              <div style={{fontSize:10,fontWeight:700,color:'var(--text-sub)',marginBottom:4}}>顧客名</div>
+              <input value={editCustomer} onChange={e=>setEditCustomer(e.target.value)}
+                style={{width:'100%',border:'1px solid var(--border)',borderRadius:6,padding:'7px 10px',fontSize:13,outline:'none'}}
+                placeholder="顧客名"/>
+            </div>
+            <div>
+              <div style={{fontSize:10,fontWeight:700,color:'var(--text-sub)',marginBottom:4}}>案件名</div>
+              <input value={editProject} onChange={e=>setEditProject(e.target.value)}
+                style={{width:'100%',border:'1px solid var(--border)',borderRadius:6,padding:'7px 10px',fontSize:13,outline:'none'}}
+                placeholder="案件名・現場名"/>
+            </div>
+          </div>
+
+          {/* 合計金額表示 */}
+          <div style={{background:'#f4f6fb',borderRadius:8,padding:'12px 16px',marginBottom:20,display:'flex',alignItems:'baseline',gap:10}}>
+            <span style={{fontSize:12,fontWeight:700,color:'var(--text-sub)'}}>合計金額（税込）</span>
+            <span style={{fontSize:26,fontWeight:900,color:C.navy}}>¥{Number(doc.total_amount||0).toLocaleString()}</span>
+            <span style={{fontSize:11,color:'var(--text-muted)',marginLeft:'auto'}}>発行日: {doc.date_str||'—'}</span>
+          </div>
+
+          {/* 商品一覧 */}
+          {items.length>0&&(
+            <div style={{marginBottom:20}}>
+              <div style={{fontSize:11,fontWeight:700,color:'var(--text-sub)',marginBottom:8}}>内訳 ({items.length}件)</div>
+              <div style={{border:'1px solid var(--border)',borderRadius:8,overflow:'hidden'}}>
+                <table style={{width:'100%',borderCollapse:'collapse'}}>
+                  <thead>
+                    <tr style={{background:'#f4f6fb'}}>
+                      {['商品名','規格','数量'].map(h=>(
+                        <th key={h} style={{padding:'7px 12px',fontSize:10,fontWeight:700,color:'var(--text-sub)',textAlign:'left'}}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {items.map((it,i)=>(
+                      <tr key={i} style={{borderTop:'1px solid var(--border-light)'}}>
+                        <td style={{padding:'7px 12px',fontSize:12,fontWeight:600}}>{it.name||it.label||'—'}</td>
+                        <td style={{padding:'7px 12px',fontSize:11,color:'var(--text-sub)'}}>{it.spec||it.cat||'—'}</td>
+                        <td style={{padding:'7px 12px',fontSize:12}}>{it.qty||1}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* 備考 */}
+          <div>
+            <div style={{fontSize:10,fontWeight:700,color:'var(--text-sub)',marginBottom:4}}>備考・メモ</div>
+            <textarea value={editNote} onChange={e=>setEditNote(e.target.value)} rows={3}
+              style={{width:'100%',border:'1px solid var(--border)',borderRadius:6,padding:'8px 10px',fontSize:12,resize:'vertical',outline:'none'}}
+              placeholder="備考・メモ（任意）"/>
+          </div>
+        </div>
+
+        {/* フッター */}
+        <div style={{padding:'12px 20px',borderTop:'1px solid var(--border)',display:'flex',gap:10,flexShrink:0}}>
+          <button onClick={onClose} style={{padding:'8px 20px',border:'1px solid var(--border)',borderRadius:7,background:'#fff',fontSize:13,cursor:'pointer',color:'var(--text-sub)',fontWeight:600}}>閉じる</button>
+          <button onClick={handleSave} disabled={saving}
+            style={{padding:'8px 24px',border:'none',borderRadius:7,background:saved?'var(--green)':C.navy,color:'#fff',fontSize:13,fontWeight:700,cursor:'pointer',marginLeft:'auto',transition:'background 0.2s'}}>
+            {saving?'保存中…':saved?'✓ 保存しました':'変更を保存'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ===== 発行履歴画面 =====
+function HistoryPage(){
+  const [docs,setDocs]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [filter,setFilter]=useState('all');
+  const [selectedDoc,setSelectedDoc]=useState(null);
+
+  const loadDocs = async()=>{
+    setLoading(true);
+    const {data,error} = await supabase
+      .from('documents')
+      .select('*')
+      .order('created_at',{ascending:false})
+      .limit(200);
+    if(!error) setDocs(data||[]);
+    setLoading(false);
+  };
+
+  useEffect(()=>{ loadDocs(); },[]);
+
+  const filtered = filter==='all' ? docs : docs.filter(d=>
+    filter==='estimate' ? (d.doc_type==='estimate'||d.doc_type==='fabric_estimate') : d.doc_type===filter
+  );
+
+  const fmtDate=(iso)=>{
+    if(!iso) return '—';
+    const d=new Date(iso);
+    return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+  };
+  const fmtMoney=(n)=>n!=null?'¥'+Number(n).toLocaleString():'—';
+
+  const handleSaved = (updated)=>{
+    setDocs(prev=>prev.map(d=>d.id===updated.id?updated:d));
+  };
+
+  const typeLabel=(dt)=>dt==='invoice'?'請求書':dt==='fabric_estimate'?'生地見積書':'見積書';
+  const typeBg=(dt)=>dt==='invoice'?'#fef3e2':dt==='fabric_estimate'?'#e8f7f0':'#e0e9f8';
+  const typeColor=(dt)=>dt==='invoice'?'#92400e':dt==='fabric_estimate'?'#0e6b42':'#1e4db7';
+
   return(
     <div style={{maxWidth:1100,margin:'0 auto',padding:'24px 20px'}}>
+      {selectedDoc&&<DocDetailModal doc={selectedDoc} onClose={()=>setSelectedDoc(null)} onSaved={(u)=>{handleSaved(u);setSelectedDoc(u);}}/>}
+
       <div style={{fontSize:12,color:'var(--text-sub)',marginBottom:6}}>ホーム › 発行履歴</div>
       <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:20}}>
         <div style={{width:38,height:38,background:`linear-gradient(135deg,${C.navy},${C.blue})`,borderRadius:10,display:'flex',alignItems:'center',justifyContent:'center',fontSize:18}}>📋</div>
         <div>
           <h1 style={{fontSize:20,fontWeight:900,color:C.navy}}>発行履歴</h1>
-          <p style={{fontSize:12,color:'var(--text-sub)'}}>見積書・請求書の発行記録一覧</p>
+          <p style={{fontSize:12,color:'var(--text-sub)'}}>見積書・請求書の発行記録一覧 — 行をクリックで詳細・編集</p>
         </div>
       </div>
 
@@ -4943,28 +5076,33 @@ function HistoryPage(){
           <table style={{width:'100%',borderCollapse:'collapse'}}>
             <thead>
               <tr style={{background:'#f4f6fb',borderBottom:`1px solid ${C.border}`}}>
-                {['発行日時','種別','顧客名','案件名','担当者','合計金額'].map(h=>(
+                {['発行日時','種別','顧客名','案件名','担当者','合計金額',''].map(h=>(
                   <th key={h} style={{padding:'10px 14px',fontSize:11,fontWeight:700,color:C.textSub,textAlign:'left',whiteSpace:'nowrap'}}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {filtered.length===0?(
-                <tr><td colSpan={6} style={{padding:32,textAlign:'center',color:C.textMuted,fontSize:13}}>発行記録がありません</td></tr>
+                <tr><td colSpan={7} style={{padding:32,textAlign:'center',color:C.textMuted,fontSize:13}}>発行記録がありません</td></tr>
               ):filtered.map((doc,i)=>(
-                <tr key={doc.id} style={{borderBottom:`1px solid ${C.borderLight}`,background:i%2===0?'#fff':'#fafbfd'}}>
+                <tr key={doc.id} onClick={()=>setSelectedDoc(doc)}
+                  style={{borderBottom:`1px solid ${C.borderLight}`,background:i%2===0?'#fff':'#fafbfd',cursor:'pointer',transition:'background 0.1s'}}
+                  onMouseEnter={e=>e.currentTarget.style.background='#eef2fb'}
+                  onMouseLeave={e=>e.currentTarget.style.background=i%2===0?'#fff':'#fafbfd'}>
                   <td style={{padding:'10px 14px',fontSize:12,color:C.textSub,whiteSpace:'nowrap'}}>{fmtDate(doc.created_at)}</td>
                   <td style={{padding:'10px 14px'}}>
                     <span style={{
                       display:'inline-block',padding:'2px 10px',borderRadius:4,fontSize:11,fontWeight:700,
-                      background:doc.doc_type==='invoice'?'#fef3e2':'#e0e9f8',
-                      color:doc.doc_type==='invoice'?'#92400e':'#1e4db7',
-                    }}>{doc.doc_type==='invoice'?'請求書':'見積書'}</span>
+                      background:typeBg(doc.doc_type), color:typeColor(doc.doc_type),
+                    }}>{typeLabel(doc.doc_type)}</span>
                   </td>
                   <td style={{padding:'10px 14px',fontSize:13,fontWeight:600}}>{doc.customer_name||'—'}</td>
                   <td style={{padding:'10px 14px',fontSize:12,color:C.textSub}}>{doc.project_name||'—'}</td>
                   <td style={{padding:'10px 14px',fontSize:12,color:C.textSub}}>{doc.created_by_name||'—'}</td>
                   <td style={{padding:'10px 14px',fontSize:13,fontWeight:700,color:C.navy,textAlign:'right'}}>{fmtMoney(doc.total_amount)}</td>
+                  <td style={{padding:'10px 14px',textAlign:'center'}}>
+                    <span style={{fontSize:11,color:C.blue,fontWeight:700,whiteSpace:'nowrap'}}>詳細 ›</span>
+                  </td>
                 </tr>
               ))}
             </tbody>
