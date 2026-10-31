@@ -953,7 +953,6 @@ function BillHead({ title, dateLabel, subjectLabel, quoteDate, subject, addresse
         </div>
 
         <div style={{fontSize:16,fontWeight:700,color:'#000',lineHeight:1.8}}>
-          <div style={{marginBottom:8}}>代表取締役　砂辺 昭伸</div>
           <div style={{marginBottom:6}}>
             <div style={{fontSize:15,fontWeight:800,borderBottom:'1.5px solid #000',marginBottom:3,paddingBottom:2,letterSpacing:'0.05em'}}>【本社】</div>
             <div>〒901-2122　沖縄県浦添市勢理客2丁目15番地26号</div>
@@ -1648,7 +1647,6 @@ function NavBar({page,setPage,user,onLogout}){
             {/* ユーザー情報 */}
             <div style={{padding:'12px 16px',borderBottom:'1px solid #f0f0f0',background:'#f8fafc'}}>
               <div style={{fontSize:13,fontWeight:800,color:C.navy}}>{displayName}</div>
-              <div style={{fontSize:10,color:'var(--text-muted)',marginTop:2}}>{user?.email||''}</div>
             </div>
             {[
               {key:'history',label:'発行履歴'},
@@ -1818,7 +1816,7 @@ function TeamMemo({user}){
   const [memos,setMemos]=React.useState([]);
   const [input,setInput]=React.useState('');
   const [loading,setLoading]=React.useState(true);
-  const displayName=user?(user.user_metadata?.display_name||user.email||'不明'):'不明';
+  const displayName=user?(user.user_metadata?.display_name||user.user_metadata?.full_name||'名前未設定'):'不明';
 
   React.useEffect(()=>{
     if(!window._supabaseClient)return;
@@ -3283,7 +3281,6 @@ function FreePrintContent({quoteDate,subject,addressee,lines,subTotal,tax,total}
         <div style={{flex:1,display:'flex',flexDirection:'column',alignItems:'flex-end',gap:6}}>
           <img src={LOGO_IMG} alt="砂辺松福テント株式会社" style={{height:32,objectFit:'contain'}}/>
           <div style={{fontSize:11,lineHeight:1.7,textAlign:'right',color:'#000'}}>
-            <div style={{fontWeight:700}}>代表取締役　砂辺 昭伸</div>
             <div>〒901-2122　沖縄県浦添市勢理客2丁目15番地26号</div>
             <div>TEL: 098-877-1028　FAX: 098-877-7755</div>
           </div>
