@@ -2322,14 +2322,14 @@ function QuotePage({addActivity, user}){
     if(mode==='setup'||mode==='teardown') return Math.round(item.setup*0.5);
     return 0;
   };
-  const itemTotal=(item,d,mode)=>Math.ceil((item.base+calcExt(item,d)+calcItemSetup(item,mode))*item.qty/10)*10;
+  const itemTotal=(item,d,mode)=>Math.floor((item.base+calcExt(item,d)+calcItemSetup(item,mode))*item.qty);
 
   const cartSub = cart.reduce((a,it)=>a+itemTotal(it,days,setupMode),0);
   const staffCost = staffFull*STAFF_FULL_PRICE + staffHalf*STAFF_HALF_PRICE;
   const adj = parseInt(adjustAmount)||0;
   const baseSubTotal = cartSub+staffCost;
   const subTotal = baseSubTotal + adj;
-  const tax = Math.round(subTotal*0.1);
+  const tax = Math.floor(subTotal*0.1);
   const total = subTotal + tax;
 
   const SETUP_OPTIONS=[
