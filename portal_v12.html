@@ -4277,48 +4277,44 @@ function LoginPage({onLogin}){
   };
 
   return(
-    <div style={{minHeight:'100vh',background:'linear-gradient(160deg,#0a1e4a 0%,#0f2a5c 45%,#1a3a7a 100%)',display:'flex',alignItems:'center',justifyContent:'center',padding:20}}>
-      <div style={{width:'100%',maxWidth:420,display:'flex',flexDirection:'column',alignItems:'center',gap:0}}>
-        {/* ロゴエリア */}
-        <div style={{textAlign:'center',marginBottom:32}}>
-          <div style={{background:'white',borderRadius:10,padding:'14px 24px',marginBottom:18,boxShadow:'0 4px 20px rgba(0,0,0,0.3)',display:'inline-block'}}>
-              <img src={LOGO_HIRES_IMG} alt="砂辺松福テント株式会社" style={{display:'block',width:260,maxWidth:'70vw',height:'auto'}}/>
-            </div>
-          <div style={{display:'flex',alignItems:'center',justifyContent:'center',gap:10}}>
-            <div style={{height:1,width:32,background:'rgba(255,255,255,0.3)'}}/>
-            <div style={{fontSize:11,color:'rgba(255,255,255,0.6)',letterSpacing:'0.12em',fontWeight:500}}>業務管理システム</div>
-            <div style={{height:1,width:32,background:'rgba(255,255,255,0.3)'}}/>
-          </div>
+    <div style={{minHeight:'100vh',background:'#2a4a7f',display:'flex',alignItems:'center',justifyContent:'center',padding:24}}>
+      {/* 大きな白い角丸カード */}
+      <div style={{background:'white',borderRadius:32,padding:'48px 40px 40px',width:'100%',maxWidth:520,boxShadow:'0 8px 40px rgba(0,0,0,0.25)',textAlign:'center'}}>
+        {/* SSTロゴ */}
+        <div style={{marginBottom:16}}>
+          <img src={LOGO_HIRES_IMG} alt="SST" style={{height:80,width:'auto',maxWidth:180}}/>
         </div>
-        {/* ログインカード */}
-        <div style={{background:'rgba(255,255,255,0.97)',borderRadius:16,padding:'36px 32px',width:'100%',boxShadow:'0 24px 64px rgba(0,0,0,0.35)',backdropFilter:'blur(10px)'}}>
-          <div style={{fontSize:16,fontWeight:800,color:'#0f2a5c',marginBottom:24,textAlign:'center',letterSpacing:'0.04em'}}>ログイン</div>
+        {/* タイトル */}
+        <div style={{fontSize:22,fontWeight:900,color:'#1a1a2e',marginBottom:32,letterSpacing:'0.02em'}}>砂辺松福テント 業務管理システム</div>
+        {/* フォームエリア（灰色ボックス） */}
+        <div style={{background:'#f0f0f0',borderRadius:16,padding:'28px 32px 24px',textAlign:'left'}}>
           <form onSubmit={handleLogin}>
-            <div style={{marginBottom:16}}>
-              <div style={{fontSize:11,fontWeight:700,color:'#52637a',marginBottom:6,letterSpacing:'0.06em'}}>メールアドレス</div>
+            <div style={{marginBottom:20}}>
+              <div style={{fontSize:13,fontWeight:600,color:'#333',marginBottom:8}}>ID（メールアドレス）</div>
               <input
                 type="email" value={email} onChange={e=>setEmail(e.target.value)}
-                placeholder="example@sst.co.jp" required
-                style={{width:'100%',padding:'11px 14px',border:'1.5px solid #dde3ef',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box',transition:'border-color 0.2s'}}
+                required
+                style={{width:'100%',padding:'10px 14px',border:'none',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box',background:'#dcdcdc',color:'#333'}}
               />
             </div>
             <div style={{marginBottom:24}}>
-              <div style={{fontSize:11,fontWeight:700,color:'#52637a',marginBottom:6,letterSpacing:'0.06em'}}>パスワード</div>
+              <div style={{fontSize:13,fontWeight:600,color:'#333',marginBottom:8}}>パスワード</div>
               <input
                 type="password" value={password} onChange={e=>setPassword(e.target.value)}
-                placeholder="パスワード" required
-                style={{width:'100%',padding:'11px 14px',border:'1.5px solid #dde3ef',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box'}}
+                required
+                style={{width:'100%',padding:'10px 14px',border:'none',borderRadius:8,fontSize:14,outline:'none',boxSizing:'border-box',background:'#dcdcdc',color:'#333'}}
               />
             </div>
             {error&&<div style={{background:'#fdecea',border:'1px solid #f5a9a3',borderRadius:6,padding:'8px 12px',fontSize:12,color:'#c0392b',marginBottom:16}}>{error}</div>}
-            <button type="submit" disabled={loading} style={{
-              width:'100%',padding:'13px',background:'linear-gradient(135deg,#0f2a5c,#1e4db7)',color:'#fff',
-              border:'none',borderRadius:8,fontSize:14,fontWeight:700,cursor:loading?'default':'pointer',
-              opacity:loading?0.7:1,letterSpacing:'0.06em',boxShadow:'0 4px 16px rgba(15,42,92,0.35)',
-            }}>{loading?'ログイン中…':'ログイン'}</button>
+            <div style={{textAlign:'center'}}>
+              <button type="submit" disabled={loading} style={{
+                padding:'12px 48px',background:'#2a4a7f',color:'#fff',
+                border:'none',borderRadius:24,fontSize:16,fontWeight:700,cursor:loading?'default':'pointer',
+                opacity:loading?0.7:1,letterSpacing:'0.08em',boxShadow:'0 2px 8px rgba(42,74,127,0.4)',
+              }}>{loading?'ログイン中…':'ログイン'}</button>
+            </div>
           </form>
         </div>
-        <div style={{marginTop:20,fontSize:11,color:'rgba(255,255,255,0.35)',letterSpacing:'0.06em'}}>© 砂辺松福テント株式会社</div>
       </div>
     </div>
   );
