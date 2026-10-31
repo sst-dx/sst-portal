@@ -2470,9 +2470,9 @@ function QuotePage({addActivity, user}){
               </div>
             </div>
 
-            {/* 商品カタログ */}
+            {/* 物品リスト */}
             <div style={{background:'var(--surface)',borderRadius:10,border:'1px solid var(--border)',padding:12}}>
-              <div style={{fontSize:11,fontWeight:800,color:C.navy,marginBottom:8}}>📦 商品カタログ</div>
+              <div style={{fontSize:11,fontWeight:800,color:C.navy,marginBottom:8}}>📦 物品リスト</div>
               {/* カテゴリ絞り込み */}
               <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:8}}>
                 <button onClick={()=>setSelCat(null)} style={{padding:'3px 10px',borderRadius:16,border:'1.5px solid',fontSize:10,fontWeight:700,cursor:'pointer',borderColor:!selCat?C.navy:'var(--border)',background:!selCat?C.navy:'#fff',color:!selCat?'#fff':'var(--text-sub)'}}>すべて</button>
@@ -2556,7 +2556,7 @@ function QuotePage({addActivity, user}){
                 {cart.length>0&&<button onClick={()=>setCart([])} style={{background:'none',border:'none',fontSize:10,color:'var(--text-muted)',cursor:'pointer'}}>全削除</button>}
               </div>
               {cart.length===0?(
-                <div style={{textAlign:'center',color:'var(--text-muted)',fontSize:12,padding:'10px 0'}}>上のカタログから商品を追加</div>
+                <div style={{textAlign:'center',color:'var(--text-muted)',fontSize:12,padding:'10px 0'}}>上の物品リストから商品を追加</div>
               ):(
                 <div style={{display:'grid',gap:4,maxHeight:220,overflowY:'auto'}}>
                   {cart.map(it=>(
