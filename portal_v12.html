@@ -855,9 +855,6 @@ const DEFAULT_STAFF = [
 
 const SHIFT_COLORS = ['#1e4db7','#0e8f5a','#b45309','#7c3aed','#c0392b','#0891b2','#d97706','#059669'];
 
-const STAFF_FULL_PRICE = 10000; // 設営スタッフ 1日（税別）
-const STAFF_HALF_PRICE = 5000;  // 設営スタッフ 半日（税別）
-
 const CURTAIN_TEARDOWN_PRICE = 22000;  // ピアアクター固定単価
 const CURTAIN_KOUJOU_TEKKO   = 16000;  // 工場加工（鉄工）1人工1日
 
@@ -1009,7 +1006,7 @@ function BillSpecTable({ rows }){
   );
 }
 
-function BillDetailTable({ lines, sub, tax, total }){
+function BillDetailTable({ lines, sub, tax, total, note }){
   return(
     <table style={{width:'100%',borderCollapse:'collapse',border:'2px solid #000',borderTop:'none',marginBottom:8,fontSize:19}}>
       <thead>
@@ -1039,17 +1036,18 @@ function BillDetailTable({ lines, sub, tax, total }){
         ))}
 
         <tr>
-          <td colSpan={3} style={{border:'1px solid #888',borderRight:'none',background:'#fff'}}/>
+          <td colSpan={3} rowSpan={3} style={{border:'1px solid #888',background:'#fafafa',padding:'10px 13px',verticalAlign:'top'}}>
+            <div style={{fontSize:11,fontWeight:900,color:'#555',marginBottom:5}}>【備考】</div>
+            <div style={{fontSize:14,color:'#222',whiteSpace:'pre-wrap',lineHeight:1.7}}>{note||''}</div>
+          </td>
           <td style={{border:'1px solid #888',padding:'9px 13px',textAlign:'center',fontWeight:900,background:'#fff'}}>小計</td>
           <td style={{border:'1px solid #888',padding:'9px 13px',textAlign:'right',fontWeight:900,fontSize:19}}>{sub.toLocaleString()}円</td>
         </tr>
         <tr>
-          <td colSpan={3} style={{border:'1px solid #888',borderRight:'none',background:'#fff'}}/>
           <td style={{border:'1px solid #888',padding:'8px 13px',textAlign:'center',fontWeight:900,background:'#fff'}}>消費税（10%）</td>
           <td style={{border:'1px solid #888',padding:'8px 13px',textAlign:'right',fontSize:19}}>{tax.toLocaleString()}円</td>
         </tr>
         <tr>
-          <td colSpan={3} style={{border:'1px solid #888',borderRight:'none',background:'#fff'}}/>
           <td style={{border:'1px solid #888',padding:'9px 13px',textAlign:'center',fontWeight:900,background:'#fff'}}>合計</td>
           <td style={{border:'1px solid #888',padding:'9px 13px',textAlign:'right',fontWeight:900,fontSize:22,background:'#fff'}}>{total.toLocaleString()}円</td>
         </tr>
@@ -1339,9 +1337,7 @@ function AwningPrintContent({ r, qty, mode, discount }){
 }
 function LeasePrintContent({ data }){
   const {customerName,customerHonorific,projectName,dateStr,staffLastName,items,days,setupMode,docType,
-    staffFull,staffHalf,staffCost,transportNote,
-    adjustLabel,adjustAmount,adj,
-    cartSub,tax,total,quoteDate,
+    cartSub,tax,total,quoteDate,note,
     setupDateFrom,setupDateTo,eventDateFrom,eventDateTo,teardownDateFrom,teardownDateTo,
     setupUndef,eventUndef,teardownUndef}=data;
   const fmtDateRange=(from,to)=>{
@@ -1349,13 +1345,11 @@ function LeasePrintContent({ data }){
     const f=d=>d.replace(/-/g,'/');
     return to&&to!==from?`${f(from)} 〜 ${f(to)}`:f(from);
   };
-  const sub = (cartSub||0)+(staffCost||0);
-  const adjVal = adj||(parseInt(adjustAmount)||0);
-  const subAfterAdj = sub + adjVal;
+  const sub = cartSub||0;
+  const subAfterAdj = sub;
   const taxCalc = Math.round(subAfterAdj*0.1);
   const totalCalc = subAfterAdj + taxCalc;
   const setupShort={both:'設営撤去込',setup:'設営込',teardown:'撤去込',none:''};
-  const staffTotal=staffFull+staffHalf;
 
   // イベント本番日から利用日数を算出（設定済みかつ非未定の場合）
   const eventDays = (!eventUndef && eventDateFrom && eventDateTo)
@@ -1376,15 +1370,6 @@ function LeasePrintContent({ data }){
     if(!item.custom && displayDays>1) detail+=` ／ 延長${displayDays-1}日`;
     return {item:item.name, detail, qty:`${item.qty}`, unit:`${p.base.toLocaleString()}円`, amount:`${tot.toLocaleString()}円`};
   }).filter(Boolean);
-  if(staffFull>0){
-    lines.push({item:'設営スタッフ（1日）', detail:'設営・施工スタッフ', qty:`${staffFull}人`, unit:`${STAFF_FULL_PRICE.toLocaleString()}円`, amount:`${(staffFull*STAFF_FULL_PRICE).toLocaleString()}円`});
-  }
-  if(staffHalf>0){
-    lines.push({item:'設営スタッフ（半日）', detail:'設営・施工スタッフ', qty:`${staffHalf}人`, unit:`${STAFF_HALF_PRICE.toLocaleString()}円`, amount:`${(staffHalf*STAFF_HALF_PRICE).toLocaleString()}円`});
-  }
-  if(adjVal && adjVal!==0){
-    lines.push({item:adjustLabel||'端数調整', detail:adjVal<0?'端数値引き':'割増', qty:'1式', unit:adjVal.toLocaleString()+'円', amount:adjVal.toLocaleString()+'円', minus:adjVal<0});
-  }
 
   // 日程の表示テキスト
   const dateText=(undef,from,to)=> undef?'未定':(from?fmtDateRange(from,to):null);
@@ -1396,7 +1381,6 @@ function LeasePrintContent({ data }){
     ['撤去日', dateText(teardownUndef,teardownDateFrom,teardownDateTo)],
     ['利用日数', eventDays ? `${eventDays} 日間` : `${days} 日間`],
     setupMode!=='none'?['設営・撤去', {both:'設営・撤去あり',setup:'設営のみ',teardown:'撤去のみ'}[setupMode]]:null,
-    staffTotal>0?['設営スタッフ', `${staffFull>0?`1日 ${staffFull}名`:''}${staffFull>0&&staffHalf>0?'／':''}${staffHalf>0?`半日 ${staffHalf}名`:''}`]:null,
   ].filter(r=>r&&r[1]);
 
   return(
@@ -1405,7 +1389,7 @@ function LeasePrintContent({ data }){
       <BillTotalBox taxIncl={totalCalc} taxExcl={subAfterAdj} tax={taxCalc} docType={docType}/>
       {specRows.length>0&&<BillSpecTable rows={specRows}/>}
       <BillSectionTitle>お見積もり内容</BillSectionTitle>
-      <BillDetailTable lines={lines} sub={subAfterAdj} tax={taxCalc} total={totalCalc}/>
+      <BillDetailTable lines={lines} sub={subAfterAdj} tax={taxCalc} total={totalCalc} note={note}/>
       <BillFooterName/>
       {docType==='invoice'&&<BillPaymentInfo/>}
     </>
@@ -2264,11 +2248,7 @@ function QuotePage({addActivity, user}){
 
   const [days,setDays]=useState(1);
   const [setupMode,setSetupMode]=useState('none');
-  const [staffFull,setStaffFull]=useState(0);
-  const [staffHalf,setStaffHalf]=useState(0);
-  const [transportNote,setTransportNote]=useState('');
-  const [adjustLabel,setAdjustLabel]=useState('特別値引き');
-  const [adjustAmount,setAdjustAmount]=useState('');
+  const [quoteNote,setQuoteNote]=useState('');
   const [customerName,setCustomerName]=useState('');
   const [customerHonorific,setCustomerHonorific]=useState('御中');
   const [projectName,setProjectName]=useState('');
@@ -2352,10 +2332,7 @@ function QuotePage({addActivity, user}){
   };
 
   const cartSub = cart.reduce((a,it)=>a+itemTotal(it,days,setupMode),0);
-  const staffCost = staffFull*STAFF_FULL_PRICE + staffHalf*STAFF_HALF_PRICE;
-  const adj = parseInt(adjustAmount)||0;
-  const baseSubTotal = cartSub+staffCost;
-  const subTotal = baseSubTotal + adj;
+  const subTotal = cartSub;
   const tax = Math.floor(subTotal*0.1);
   const total = subTotal + tax;
 
@@ -2393,10 +2370,8 @@ function QuotePage({addActivity, user}){
         >
           <LeasePrintContent data={{
             items:cart, days, setupMode,
-            staffFull, staffHalf, transportNote,
-            adjustLabel, adjustAmount:parseInt(adjustAmount)||0,
             customerName, customerHonorific, projectName, dateStr, staffLastName,
-            cartSub, staffCost, adj, subTotal, tax, total,
+            cartSub, subTotal, tax, total, note:quoteNote,
             calcExt, calcItemSetup, itemTotal, docType,
             setupDateFrom, setupDateTo, eventDateFrom, eventDateTo, teardownDateFrom, teardownDateTo,
             setupUndef, eventUndef, teardownUndef,
@@ -2604,30 +2579,16 @@ function QuotePage({addActivity, user}){
               )}
             </div>
 
-            {/* その他費用 */}
+            {/* 備考・メモ欄 */}
             <div style={{background:'var(--surface)',borderRadius:10,border:'1px solid var(--border)',padding:12}}>
-              <div style={{fontSize:11,fontWeight:800,color:C.navy,marginBottom:8}}>⚙️ その他費用</div>
-              <div style={{display:'grid',gap:7}}>
-                <div style={{display:'flex',alignItems:'center',gap:7}}>
-                  <span style={{fontSize:10,flex:1,color:'var(--text-sub)'}}>スタッフ（1日）</span>
-                  <button onClick={()=>setStaffFull(n=>Math.max(0,n-1))} style={{width:20,height:20,border:'1px solid var(--border)',borderRadius:4,background:'#fff',cursor:'pointer',fontWeight:700,fontSize:12}}>－</button>
-                  <span style={{fontSize:12,fontWeight:800,minWidth:18,textAlign:'center'}}>{staffFull}</span>
-                  <button onClick={()=>setStaffFull(n=>n+1)} style={{width:20,height:20,border:'1px solid var(--border)',borderRadius:4,background:'#fff',cursor:'pointer',fontWeight:700,fontSize:12}}>＋</button>
-                  <span style={{fontSize:10,color:'var(--text-muted)',minWidth:48}}>¥{(staffFull*STAFF_FULL_PRICE).toLocaleString()}</span>
-                </div>
-                <div style={{display:'flex',alignItems:'center',gap:7}}>
-                  <span style={{fontSize:10,flex:1,color:'var(--text-sub)'}}>スタッフ（半日）</span>
-                  <button onClick={()=>setStaffHalf(n=>Math.max(0,n-1))} style={{width:20,height:20,border:'1px solid var(--border)',borderRadius:4,background:'#fff',cursor:'pointer',fontWeight:700,fontSize:12}}>－</button>
-                  <span style={{fontSize:12,fontWeight:800,minWidth:18,textAlign:'center'}}>{staffHalf}</span>
-                  <button onClick={()=>setStaffHalf(n=>n+1)} style={{width:20,height:20,border:'1px solid var(--border)',borderRadius:4,background:'#fff',cursor:'pointer',fontWeight:700,fontSize:12}}>＋</button>
-                  <span style={{fontSize:10,color:'var(--text-muted)',minWidth:48}}>¥{(staffHalf*STAFF_HALF_PRICE).toLocaleString()}</span>
-                </div>
-                <input placeholder="運搬費メモ（例：別途お見積もり）" value={transportNote} onChange={e=>setTransportNote(e.target.value)} style={{...inp,fontSize:10,padding:'4px 8px'}}/>
-                <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:5}}>
-                  <input placeholder="調整項目名" value={adjustLabel} onChange={e=>setAdjustLabel(e.target.value)} style={{...inp,fontSize:10,padding:'4px 8px'}}/>
-                  <input type="number" placeholder="金額（値引きは－）" value={adjustAmount} onChange={e=>setAdjustAmount(e.target.value)} style={{...inp,fontSize:10,padding:'4px 8px'}}/>
-                </div>
-              </div>
+              <div style={{fontSize:11,fontWeight:800,color:C.navy,marginBottom:6}}>📝 備考・注意事項（見積書に印刷）</div>
+              <textarea
+                value={quoteNote}
+                onChange={e=>setQuoteNote(e.target.value)}
+                placeholder="例：&#10;・搬入口のご確認をお願いします&#10;・設営は前日からとなります&#10;・お見積もりの有効期限は1ヶ月です"
+                rows={4}
+                style={{...inp,width:'100%',fontSize:11,padding:'6px 8px',resize:'vertical',lineHeight:1.6,fontFamily:'inherit'}}
+              />
             </div>
 
             {/* 合計・PDFボタン */}
@@ -2636,20 +2597,8 @@ function QuotePage({addActivity, user}){
               <div style={{fontSize:24,fontWeight:900,marginBottom:6}}>¥{total.toLocaleString()}</div>
               <div style={{fontSize:10,opacity:0.7,display:'grid',gap:1}}>
                 <div style={{display:'flex',justifyContent:'space-between'}}><span>商品小計</span><span>¥{cartSub.toLocaleString()}</span></div>
-                {staffCost>0&&<div style={{display:'flex',justifyContent:'space-between'}}><span>スタッフ費</span><span>¥{staffCost.toLocaleString()}</span></div>}
-                {adj!==0&&<div style={{display:'flex',justifyContent:'space-between'}}><span>{adjustLabel}</span><span>{adj<0?'-':''}¥{Math.abs(adj).toLocaleString()}</span></div>}
                 <div style={{display:'flex',justifyContent:'space-between'}}><span>消費税10%</span><span>¥{tax.toLocaleString()}</span></div>
               </div>
-              {cart.length>0&&(
-                <RoundingAdjust
-                  grandTotal={baseSubTotal}
-                  hasAdj={adj!==0}
-                  adjValue={adjustAmount}
-                  onAdjChange={v=>{setAdjustLabel('端数値引き');setAdjustAmount(v);}}
-                  onApply={(target,diff,label)=>{setAdjustLabel('端数値引き');setAdjustAmount(String(diff));}}
-                  onReset={()=>{setAdjustLabel('特別値引き');setAdjustAmount('');}}
-                />
-              )}
               <button disabled={cart.length===0} onClick={()=>{
                 addActivity&&addActivity({id:genId('Q'),icon:'📋',title:'リース見積もり',company:withHonorific(customerName||'お客様'),status:'作成中',time:nowTime(),total});
                 setShowPdf(true);
@@ -2682,12 +2631,10 @@ function QuotePage({addActivity, user}){
               <div style={{background:'#fff',borderRadius:4,boxShadow:'0 4px 24px rgba(0,0,0,0.12)',padding:'32px 36px',minHeight:600}}>
                 <LeasePrintContent data={{
                   items:cart, days, setupMode,
-                  staffFull, staffHalf, transportNote,
-                  adjustLabel, adjustAmount:parseInt(adjustAmount)||0,
                   customerName, customerHonorific, projectName,
                   dateStr:dateStr||new Date().toISOString().slice(0,10),
                   staffLastName,
-                  cartSub, staffCost, adj, subTotal, tax, total,
+                  cartSub, subTotal, tax, total, note:quoteNote,
                   calcExt, calcItemSetup, itemTotal, docType,
                   setupDateFrom, setupDateTo, eventDateFrom, eventDateTo, teardownDateFrom, teardownDateTo,
                   setupUndef, eventUndef, teardownUndef,
