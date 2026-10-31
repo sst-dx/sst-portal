@@ -4968,7 +4968,7 @@ function DocDetailModal({doc, onClose, onSaved}){
   const typeBg = doc.doc_type==='invoice'?'#fef3e2': doc.doc_type==='fabric_estimate'?'#e8f7f0':'#e0e9f8';
   const typeColor = doc.doc_type==='invoice'?'#92400e': doc.doc_type==='fabric_estimate'?'#0e6b42':'#1e4db7';
 
-  return(
+  return ReactDOM.createPortal(
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:9000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
       <div style={{background:'#fff',borderRadius:14,width:'100%',maxWidth:640,maxHeight:'90vh',display:'flex',flexDirection:'column',boxShadow:'0 20px 60px rgba(0,0,0,0.25)'}}>
         {/* ヘッダー */}
@@ -5057,7 +5057,7 @@ function DocDetailModal({doc, onClose, onSaved}){
         </div>
       </div>
     </div>
-  );
+  , document.body);
 }
 
 // ===== 発行履歴画面 =====
