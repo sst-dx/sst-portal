@@ -1459,7 +1459,7 @@ function FabricPrintContent({ results, extraItems=[], adjust=0, customer='', sub
     const itemName=r.itemName&&r.itemName.trim()?r.itemName.trim():(results.length>1?`生地${ri+1}　製作設計`:'製作設計');
     const fQty=r.fabricQty||1;
     const perSheet=Math.round(r.fabricCost/fQty);
-    allLines.push({item:itemName, detail:`${r.fabric.no}番 ${r.fabric.name}${r.gradeId!=='none'?'　'+GRADES.find(g=>g.id===r.gradeId).label:''}　${dimText}`, qty:fQty>1?`${fQty}枚`:`${r.area.toFixed(3)}㎡`, unit:fQty>1?`${perSheet.toLocaleString()}円/枚`:`${r.fabric.designPrice.toLocaleString()}円/㎡`, amount:`${r.fabricCost.toLocaleString()}円`});
+    allLines.push({item:itemName, detail:`${r.fabric.name}　${dimText}`, qty:fQty>1?`${fQty}枚`:`${r.area.toFixed(3)}㎡`, unit:fQty>1?`${perSheet.toLocaleString()}円/枚`:`${r.fabric.designPrice.toLocaleString()}円/㎡`, amount:`${r.fabricCost.toLocaleString()}円`});
     if(r.hasMT) allLines.push({item:label+'マジックテープ', detail:`${r.mtLen}m × ¥2,200`, qty:`${r.mtLen}m`, unit:'2,200円/m', amount:`${r.mtCost.toLocaleString()}円`});
     if(r.hasZip) allLines.push({item:label+'ファスナー', detail:`H${r.zipH}mm × ${r.zipCnt}本（${r.zipUnits}単位）`, qty:`${r.zipUnits}単位`, unit:'1,200円/0.5m', amount:`${r.zipCost.toLocaleString()}円`});
   });
@@ -1480,7 +1480,7 @@ function FabricPrintContent({ results, extraItems=[], adjust=0, customer='', sub
     const excludedFaces=r.faces?r.faces.filter(f=>!f.included).map(f=>`${['','①','②','③','④','⑤','⑥'][f.id]} ${faceNames[f.id]}なし`):[];
     if(results.length>1) specRows.push([`── 生地${ri+1}`, '']);
     specRows.push(['製品名', r.estType==='box'?'箱型カバー':'平面シート・幕']);
-    specRows.push(['生地', `${r.fabric.no}番 ${r.fabric.name}`]);
+    specRows.push(['生地', r.fabric.name]);
     if(r.estType==='box'&&r.dims) specRows.push(['仕上がり寸法', `W${r.dims.W}m × D${r.dims.D}m × H${r.dims.H}m`]);
     if(r.estType==='sheet'&&r.dims&&r.dims.tate) specRows.push(['仕上がり寸法', `${r.dims.tate}mm × ${r.dims.yoko}mm ＝ ${r.area.toFixed(3)}㎡`]);
     if(excludedFaces.length>0) specRows.push(['不要面', excludedFaces.join('、')]);
@@ -1495,12 +1495,6 @@ function FabricPrintContent({ results, extraItems=[], adjust=0, customer='', sub
       <BillSpecTable rows={specRows}/>
       <BillSectionTitle>見積明細</BillSectionTitle>
       <BillDetailTable lines={allLines} sub={totalSub} tax={totalTax} total={totalAll}/>
-      <BillNote>
-        <div>● 本見積は各生地番号での概算です。縫い代・仕様詳細により金額が変動する場合があります。</div>
-        {results.some(r=>r.hasZip)&&<div>● ファスナーは0.5mあたり¥1,200で算出しています。</div>}
-        {results.some(r=>r.estType==='box')&&<div>● 箱型カバーの展開図は別紙参照。</div>}
-      </BillNote>
-      <BillConfirm/>
       <BillFooterName/>
     </>
   );
