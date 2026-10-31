@@ -971,16 +971,10 @@ function BillHead({ title, dateLabel, subjectLabel, quoteDate, subject, addresse
 function BillTotalBox({ taxIncl, taxExcl, tax, docType }){
   const label = docType==='invoice' ? 'ご請求金額' : 'お見積金額';
   return(
-    <div style={{border:'2px solid #000',marginBottom:10,width:'100%'}}>
-      <div style={{background:'#e8eaf0',borderBottom:'1.5px solid #1a2236',textAlign:'center',padding:'6px 0',fontSize:22,fontWeight:900,letterSpacing:'0.2em'}}>{label}</div>
-      <div style={{textAlign:'center',padding:'7px 0 3px'}}>
-        <span style={{fontSize:22,fontWeight:700,verticalAlign:'middle'}}>税込</span>
-        <span style={{fontSize:52,fontWeight:900,verticalAlign:'middle',letterSpacing:'0.01em',marginLeft:4}}>{taxIncl.toLocaleString()}</span>
-        <span style={{fontSize:22,fontWeight:700,verticalAlign:'middle',marginLeft:2}}>円</span>
-      </div>
-      <div style={{textAlign:'center',fontSize:19,fontWeight:700,color:'#000',paddingBottom:8}}>
-        税別 {taxExcl.toLocaleString()}円　／　消費税 {tax.toLocaleString()}円
-      </div>
+    <div style={{display:'flex',alignItems:'baseline',gap:16,marginBottom:12,paddingBottom:10,borderBottom:'1.5px solid #000'}}>
+      <span style={{fontSize:18,fontWeight:900,letterSpacing:'0.05em',whiteSpace:'nowrap'}}>{label}</span>
+      <span style={{fontSize:32,fontWeight:900,letterSpacing:'0.02em'}}>¥ {taxIncl.toLocaleString()} -</span>
+      <span style={{fontSize:13,color:'#555',marginLeft:4}}>（税別 {taxExcl.toLocaleString()}円　消費税 {tax.toLocaleString()}円）</span>
     </div>
   );
 }
