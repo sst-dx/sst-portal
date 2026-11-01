@@ -1442,7 +1442,7 @@ function FabricPrintContent({ results, extraItems=[], adjust=0, customer='', sub
       allLines.push({rowType:'header', item:curLabel});
       r.splitParts.forEach((p,pi)=>{
         const posLabel=pi===0?'上部':pi===r.splitParts.length-1?'下部':'中部'+pi;
-        allLines.push({rowType:'child', item:posLabel, detail:`${p.fabric?p.fabric.no+'番 '+p.fabric.name:'－'}　${p.yoko}mm×${p.h}mm＝${p.area.toFixed(3)}㎡${r.gradeId!=='none'?'　'+GRADES.find(g=>g.id===r.gradeId).label:''}`, qty:`${p.area.toFixed(3)}㎡`, unit:`${p.fabric?p.fabric.designPrice.toLocaleString():0}円/㎡`, amount:`${(p.cost*(r.fabricQty||1)).toLocaleString()}円`});
+        allLines.push({rowType:'child', item:posLabel, detail:`${p.fabric?p.fabric.name:'－'}　${p.yoko}mm×${p.h}mm＝${p.area.toFixed(3)}㎡`, qty:`${p.area.toFixed(3)}㎡`, unit:`${p.fabric?p.fabric.designPrice.toLocaleString():0}円/㎡`, amount:`${(p.cost*(r.fabricQty||1)).toLocaleString()}円`});
       });
       if(r.hasMT) allLines.push({rowType:'child', item:'マジックテープ', detail:`${r.mtLen}m × ¥2,200`, qty:`${r.mtLen}m`, unit:'2,200円/m', amount:`${r.mtCost.toLocaleString()}円`});
       if(r.hasZip) allLines.push({rowType:'child', item:'ファスナー', detail:`H${r.zipH}mm × ${r.zipCnt}本（${r.zipUnits}単位）`, qty:`${r.zipUnits}単位`, unit:'1,200円/0.5m', amount:`${r.zipCost.toLocaleString()}円`});
@@ -1459,7 +1459,7 @@ function FabricPrintContent({ results, extraItems=[], adjust=0, customer='', sub
     const itemName=r.itemName&&r.itemName.trim()?r.itemName.trim():(results.length>1?`生地${ri+1}　製作設計`:'製作設計');
     const fQty=r.fabricQty||1;
     const perSheet=Math.round(r.fabricCost/fQty);
-    allLines.push({item:itemName, detail:`${r.fabric.no}番 ${r.fabric.name}${r.gradeId!=='none'?'　'+GRADES.find(g=>g.id===r.gradeId).label:''}　${dimText}`, qty:fQty>1?`${fQty}枚`:`${r.area.toFixed(3)}㎡`, unit:fQty>1?`${perSheet.toLocaleString()}円/枚`:`${r.fabric.designPrice.toLocaleString()}円/㎡`, amount:`${r.fabricCost.toLocaleString()}円`});
+    allLines.push({item:itemName, detail:`${r.fabric.name}　${dimText}`, qty:fQty>1?`${fQty}枚`:`${r.area.toFixed(3)}㎡`, unit:fQty>1?`${perSheet.toLocaleString()}円/枚`:`${r.fabric.designPrice.toLocaleString()}円/㎡`, amount:`${r.fabricCost.toLocaleString()}円`});
     if(r.hasMT) allLines.push({item:label+'マジックテープ', detail:`${r.mtLen}m × ¥2,200`, qty:`${r.mtLen}m`, unit:'2,200円/m', amount:`${r.mtCost.toLocaleString()}円`});
     if(r.hasZip) allLines.push({item:label+'ファスナー', detail:`H${r.zipH}mm × ${r.zipCnt}本（${r.zipUnits}単位）`, qty:`${r.zipUnits}単位`, unit:'1,200円/0.5m', amount:`${r.zipCost.toLocaleString()}円`});
   });
@@ -1480,7 +1480,7 @@ function FabricPrintContent({ results, extraItems=[], adjust=0, customer='', sub
     const excludedFaces=r.faces?r.faces.filter(f=>!f.included).map(f=>`${['','①','②','③','④','⑤','⑥'][f.id]} ${faceNames[f.id]}なし`):[];
     if(results.length>1) specRows.push([`── 生地${ri+1}`, '']);
     specRows.push(['製品名', r.estType==='box'?'箱型カバー':'平面シート・幕']);
-    specRows.push(['生地', `${r.fabric.no}番 ${r.fabric.name}`]);
+    specRows.push(['生地', r.fabric.name]);
     if(r.estType==='box'&&r.dims) specRows.push(['仕上がり寸法', `W${r.dims.W}m × D${r.dims.D}m × H${r.dims.H}m`]);
     if(r.estType==='sheet'&&r.dims&&r.dims.tate) specRows.push(['仕上がり寸法', `${r.dims.tate}mm × ${r.dims.yoko}mm ＝ ${r.area.toFixed(3)}㎡`]);
     if(excludedFaces.length>0) specRows.push(['不要面', excludedFaces.join('、')]);
@@ -1495,12 +1495,6 @@ function FabricPrintContent({ results, extraItems=[], adjust=0, customer='', sub
       <BillSpecTable rows={specRows}/>
       <BillSectionTitle>見積明細</BillSectionTitle>
       <BillDetailTable lines={allLines} sub={totalSub} tax={totalTax} total={totalAll}/>
-      <BillNote>
-        <div>● 本見積は各生地番号での概算です。縫い代・仕様詳細により金額が変動する場合があります。</div>
-        {results.some(r=>r.hasZip)&&<div>● ファスナーは0.5mあたり¥1,200で算出しています。</div>}
-        {results.some(r=>r.estType==='box')&&<div>● 箱型カバーの展開図は別紙参照。</div>}
-      </BillNote>
-      <BillConfirm/>
       <BillFooterName/>
     </>
   );
@@ -1584,21 +1578,33 @@ function NavBar({page,setPage,user,onLogout}){
   const items=[
     {key:'dashboard',label:'ダッシュボード',icon:Icon.dashboard},
     {key:'quote',label:'リース見積もり',icon:Icon.quote},
-    {key:'awning',label:'オーニング見積もり',icon:Icon.awning},
     {key:'fabric',label:'生地見積もり',icon:Icon.fabric},
-    {key:'free',label:'自由見積もり',icon:Icon.iron,badge:'NEW',badgeColor:'#e11d48'},
+    {key:'tent',label:'各種テント見積もり',icon:Icon.awning,dropdown:[
+      {key:'awning',label:'オーニング見積もり',icon:Icon.awning},
+      {key:'curtain',label:'巻き上げカーテン',icon:Icon.curtain},
+    ]},
     {key:'pawlo',label:'パウロテント販売',icon:Icon.pawlo},
-    {key:'curtain',label:'巻き上げカーテン',icon:Icon.curtain},
     {key:'iron',label:'鉄工材料見積もり',icon:Icon.iron},
+    {key:'free',label:'自由見積もり',icon:Icon.quote},
   ];
   const [menuOpen,setMenuOpen]=React.useState(false);
+  const [tentOpen,setTentOpen]=React.useState(false);
   const menuRef=React.useRef(null);
+  const tentRef=React.useRef(null);
   React.useEffect(()=>{
     if(!menuOpen) return;
     const handler=(e)=>{ if(menuRef.current&&!menuRef.current.contains(e.target)) setMenuOpen(false); };
     document.addEventListener('mousedown',handler);
     return()=>document.removeEventListener('mousedown',handler);
   },[menuOpen]);
+  React.useEffect(()=>{
+    if(!tentOpen) return;
+    const handler=(e)=>{ if(tentRef.current&&!tentRef.current.contains(e.target)) setTentOpen(false); };
+    document.addEventListener('mousedown',handler);
+    return()=>document.removeEventListener('mousedown',handler);
+  },[tentOpen]);
+  const tentPages=['awning','curtain'];
+  const isTentActive=tentPages.includes(page);
   const displayName = user ? (user.user_metadata?.display_name||user.email||'') : '';
   const initials = displayName ? displayName.trim()[0].toUpperCase() : '?';
   return(
@@ -1614,7 +1620,58 @@ function NavBar({page,setPage,user,onLogout}){
       </div>
 
       <div style={{display:'flex',gap:0,flex:1}}>
-        {items.map(i=>(
+        {items.map(i=>{
+          if(i.dropdown){
+            const isActive=isTentActive;
+            return(
+              <div key={i.key} ref={tentRef} style={{position:'relative'}}>
+                <button onClick={()=>setTentOpen(o=>!o)} style={{
+                  background:'transparent',
+                  color:isActive||tentOpen?'#fff':'rgba(255,255,255,0.58)',
+                  border:'none',
+                  borderBottom:isActive?'2px solid #fff':'2px solid transparent',
+                  borderRadius:0,
+                  padding:'0 14px',
+                  height:54,
+                  fontSize:12,fontWeight:isActive?700:400,cursor:'pointer',
+                  display:'flex',alignItems:'center',gap:5,
+                  position:'relative',whiteSpace:'nowrap',
+                  transition:'color 0.15s',
+                }}
+                onMouseOver={e=>{if(!isActive)e.currentTarget.style.color='rgba(255,255,255,0.85)';}}
+                onMouseOut={e=>{if(!isActive&&!tentOpen)e.currentTarget.style.color='rgba(255,255,255,0.58)';}}>
+                  <span style={{opacity:isActive?1:0.7}}>{i.icon}</span>
+                  {i.label}
+                  <span style={{fontSize:9,marginLeft:2,opacity:0.8}}>{tentOpen?'▲':'▼'}</span>
+                </button>
+                {tentOpen&&(
+                  <div style={{
+                    position:'absolute',top:'calc(100% + 2px)',left:0,
+                    background:'#fff',borderRadius:8,
+                    boxShadow:'0 8px 24px rgba(9,29,66,0.18)',
+                    minWidth:180,zIndex:500,
+                    border:'1px solid rgba(0,0,0,0.08)',
+                    overflow:'hidden',
+                  }}>
+                    {i.dropdown.map(sub=>(
+                      <button key={sub.key} onClick={()=>{setPage(sub.key);setTentOpen(false);}} style={{
+                        display:'flex',alignItems:'center',gap:8,
+                        width:'100%',textAlign:'left',
+                        padding:'10px 16px',background:page===sub.key?'#e8eef8':'transparent',border:'none',
+                        fontSize:13,color:C.navy,cursor:'pointer',fontWeight:page===sub.key?700:500,
+                        whiteSpace:'nowrap',
+                      }}
+                      onMouseOver={e=>e.currentTarget.style.background='#f0f4ff'}
+                      onMouseOut={e=>e.currentTarget.style.background=page===sub.key?'#e8eef8':'transparent'}>
+                        <span>{sub.icon}</span>{sub.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          }
+          return(
           <button key={i.key} onClick={()=>setPage(i.key)} style={{
             background:'transparent',
             color:page===i.key?'#fff':'rgba(255,255,255,0.58)',
@@ -1638,7 +1695,8 @@ function NavBar({page,setPage,user,onLogout}){
               marginLeft:2,
             }}>{i.badge}</span>}
           </button>
-        ))}
+          );
+        })}
       </div>
 
       {/* アカウントアバター＋ドロップダウン */}
@@ -2147,7 +2205,7 @@ function Dashboard({setPage, activityLog, todayShiftCount=0, user}){
         {key:'awning',  title:'オーニング 見積もり', desc:'オーニング製品の仕様を選択し、見積もりを作成します。',badge:'NEW',badgeColor:'#10b981'},
         {key:'fabric',  title:'生地・幕 見積もり', desc:'生地・幕の種類やサイズを選択し、見積もりを作成します。',badge:'NEW',badgeColor:'#f59e0b'},
         {key:'iron',    title:'鉄工材料 見積もり', desc:'パイプ・鉄板・形鋼などの材料を選んで見積もりを作成します。'},
-    {key:'free',    title:'自由見積もり', desc:'項目・数量・単価を自由に入力。料金表にない工事や特殊案件に。',badge:'NEW',badgeColor:'#e11d48'},
+    {key:'free',    title:'自由見積もり', desc:'項目・数量・単価を自由に入力。料金表にない工事や特殊案件に。'},
       ]
     },
     {
@@ -2413,7 +2471,7 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
             const {data:{user:u}} = await supabase.auth.getUser();
             // まずドキュメント情報をInsert
             const {data:inserted, error} = await supabase.from('documents').insert({
-              doc_type: docType,
+              doc_type: docType==='invoice'?'lease_invoice':'lease_estimate',
               created_by: u?.id||null,
               created_by_name: u?.user_metadata?.display_name || u?.email || staff || '不明',
               customer_name: customerName||'',
@@ -5340,11 +5398,21 @@ function MyPage({user}){
                 <tr key={doc.id} style={{borderBottom:`1px solid ${C.borderLight}`,background:i%2===0?'#fff':'#fafbfd'}}>
                   <td style={{padding:'10px 14px',fontSize:12,color:C.textSub,whiteSpace:'nowrap'}}>{fmtDate(doc.created_at)}</td>
                   <td style={{padding:'10px 14px'}}>
-                    <span style={{
-                      display:'inline-block',padding:'2px 10px',borderRadius:4,fontSize:11,fontWeight:700,
-                      background:doc.doc_type==='invoice'?'#fef3e2':'#e0e9f8',
-                      color:doc.doc_type==='invoice'?'#92400e':'#1e4db7',
-                    }}>{doc.doc_type==='invoice'?'請求書':'見積書'}</span>
+                    {(()=>{
+                      const DOC_LABEL={
+                        invoice:    {label:'請求書',     bg:'#fef3e2',color:'#92400e'},
+                        estimate:   {label:'見積書',     bg:'#e0e9f8',color:'#1e4db7'},
+                        fabric_estimate:{label:'生地見積書', bg:'#e8f5e9',color:'#1b5e20'},
+                        awning_estimate:{label:'オーニング見積書',bg:'#fff3e0',color:'#e65100'},
+                        pawlo_estimate: {label:'パウロ見積書', bg:'#f3e5f5',color:'#6a1b9a'},
+                        free_estimate:  {label:'自由見積書',  bg:'#e8eaf6',color:'#283593'},
+                        curtain_estimate:{label:'カーテン見積書',bg:'#e0f2f1',color:'#004d40'},
+                        lease_estimate: {label:'リース見積書', bg:'#fce4ec',color:'#880e4f'},
+                        lease_invoice:  {label:'リース請求書', bg:'#fce4ec',color:'#880e4f'},
+                      };
+                      const d=DOC_LABEL[doc.doc_type]||DOC_LABEL.estimate;
+                      return <span style={{display:'inline-block',padding:'2px 10px',borderRadius:4,fontSize:11,fontWeight:700,background:d.bg,color:d.color}}>{d.label}</span>;
+                    })()}
                   </td>
                   <td style={{padding:'10px 14px',fontSize:13,fontWeight:600}}>{doc.customer_name||'—'}</td>
                   <td style={{padding:'10px 14px',fontSize:12,color:C.textSub}}>{doc.project_name||'—'}</td>
