@@ -2760,7 +2760,7 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
                 addActivity&&addActivity({id:genId('Q'),icon:'📋',title:'リース見積もり',company:withHonorific(customerName||'お客様'),status:'作成中',time:nowTime(),total});
                 setShowPdf(true);
               }} style={{width:'100%',marginTop:8,background:cart.length?'#fff':'rgba(255,255,255,0.3)',color:cart.length?C.navy:'rgba(255,255,255,0.5)',border:'none',borderRadius:8,padding:10,fontSize:12,fontWeight:700,cursor:cart.length?'pointer':'default'}}>
-                📄 PDF見積書を作成
+                {editDocData ? '✅ 再発行する' : '📄 見積書を作成'}
               </button>
             </div>
 
@@ -4067,7 +4067,7 @@ function IronPage(){
                 onClick={()=>setShowPdf(true)}
                 style={{width:'100%',background:lines.length?'var(--navy)':'var(--border)',color:'#fff',border:'none',
                   borderRadius:8,padding:'11px',fontSize:13,fontWeight:700,cursor:lines.length?'pointer':'default'}}>
-                📄 PDF見積書を作成
+                📄 見積書を作成
               </button>
 
               {lines.length>0&&(
@@ -4550,7 +4550,7 @@ function CurtainPage(){
                 style={{width:'100%',marginTop:6,background:grandTotal>0?'var(--navy)':'var(--border)',
                   color:'#fff',border:'none',borderRadius:8,padding:11,fontSize:13,fontWeight:700,
                   cursor:grandTotal>0?'pointer':'default'}}>
-                📄 PDF見積書を作成
+                📄 見積書を作成
               </button>
 
             </div>
@@ -4824,7 +4824,7 @@ function PawloPage({ addActivity }){
               width:'100%',background:canQuote?C.navy:'#94a3b8',color:C.white,border:'none',borderRadius:8,
               padding:'12px',fontSize:13,fontWeight:700,cursor:canQuote?'pointer':'not-allowed',
               display:'flex',alignItems:'center',justifyContent:'center',gap:6,
-            }}>📄 PDF見積書を作成</button>
+            }}>📄 見積書を作成</button>
 
             {!canQuote&&<div style={{fontSize:10,color:C.textMuted,marginTop:8,textAlign:'center'}}>宛名の入力と商品の追加が必要です</div>}
             {canQuote&&<RoundingAdjust
