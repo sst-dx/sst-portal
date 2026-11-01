@@ -5091,7 +5091,7 @@ function DocDetailModal({doc, onClose, onSaved, onEdit}){
   const DOC_META={
     invoice:          {label:'請求書',       bg:'#fef3e2',color:'#92400e'},
     estimate:         {label:'見積書',       bg:'#e0e9f8',color:'#1e4db7'},
-    fabric_estimate:  {label:'生地見積書',   bg:'#e8f5e9',color:'#1b5e20'},
+    fabric_estimate:  {label:'生地見積り',   bg:'#e8f5e9',color:'#1b5e20'},
     awning_estimate:  {label:'オーニング見積書',bg:'#fff3e0',color:'#e65100'},
     pawlo_estimate:   {label:'パウロ見積書', bg:'#f3e5f5',color:'#6a1b9a'},
     free_estimate:    {label:'自由見積書',   bg:'#e8eaf6',color:'#283593'},
@@ -5219,8 +5219,10 @@ function HistoryPage({onEditDoc}){
 
   useEffect(()=>{ loadDocs(); },[]);
 
+  const ESTIMATE_TYPES=['estimate','fabric_estimate','awning_estimate','pawlo_estimate','free_estimate','curtain_estimate','lease_estimate','iron_estimate'];
+  const INVOICE_TYPES=['invoice','lease_invoice'];
   const filtered = filter==='all' ? docs : docs.filter(d=>
-    filter==='estimate' ? (d.doc_type==='estimate'||d.doc_type==='fabric_estimate') : d.doc_type===filter
+    filter==='estimate' ? ESTIMATE_TYPES.includes(d.doc_type) : INVOICE_TYPES.includes(d.doc_type)
   );
 
   const fmtDate=(iso)=>{
@@ -5234,9 +5236,21 @@ function HistoryPage({onEditDoc}){
     setDocs(prev=>prev.map(d=>d.id===updated.id?updated:d));
   };
 
-  const typeLabel=(dt)=>dt==='invoice'?'請求書':dt==='fabric_estimate'?'生地見積書':'見積書';
-  const typeBg=(dt)=>dt==='invoice'?'#fef3e2':dt==='fabric_estimate'?'#e8f7f0':'#e0e9f8';
-  const typeColor=(dt)=>dt==='invoice'?'#92400e':dt==='fabric_estimate'?'#0e6b42':'#1e4db7';
+  const DOC_META_H={
+    invoice:          {label:'請求書',         bg:'#fef3e2',color:'#92400e'},
+    estimate:         {label:'見積書',         bg:'#e0e9f8',color:'#1e4db7'},
+    fabric_estimate:  {label:'生地見積り',     bg:'#e8f5e9',color:'#1b5e20'},
+    awning_estimate:  {label:'オーニング見積書',bg:'#fff3e0',color:'#e65100'},
+    pawlo_estimate:   {label:'パウロ見積書',   bg:'#f3e5f5',color:'#6a1b9a'},
+    free_estimate:    {label:'自由見積書',     bg:'#e8eaf6',color:'#283593'},
+    curtain_estimate: {label:'カーテン見積書', bg:'#e0f2f1',color:'#004d40'},
+    lease_estimate:   {label:'リース見積書',   bg:'#fce4ec',color:'#880e4f'},
+    lease_invoice:    {label:'リース請求書',   bg:'#fce4ec',color:'#880e4f'},
+    iron_estimate:    {label:'鉄工見積書',     bg:'#eceff1',color:'#37474f'},
+  };
+  const typeLabel=(dt)=>(DOC_META_H[dt]||DOC_META_H.estimate).label;
+  const typeBg=(dt)=>(DOC_META_H[dt]||DOC_META_H.estimate).bg;
+  const typeColor=(dt)=>(DOC_META_H[dt]||DOC_META_H.estimate).color;
 
   return(
     <div style={{maxWidth:1100,margin:'0 auto',padding:'24px 20px'}}>
@@ -5330,10 +5344,14 @@ function MyPage({user}){
     })();
   },[user]);
 
-  const filtered = filter==='all' ? docs : docs.filter(d=>d.doc_type===filter);
+  const ESTIMATE_TYPES_M=['estimate','fabric_estimate','awning_estimate','pawlo_estimate','free_estimate','curtain_estimate','lease_estimate','iron_estimate'];
+  const INVOICE_TYPES_M=['invoice','lease_invoice'];
+  const filtered = filter==='all' ? docs : docs.filter(d=>
+    filter==='estimate' ? ESTIMATE_TYPES_M.includes(d.doc_type) : INVOICE_TYPES_M.includes(d.doc_type)
+  );
   const totalAmount = docs.reduce((s,d)=>s+(d.total_amount||0),0);
-  const estimateCount = docs.filter(d=>d.doc_type==='estimate').length;
-  const invoiceCount = docs.filter(d=>d.doc_type==='invoice').length;
+  const estimateCount = docs.filter(d=>ESTIMATE_TYPES_M.includes(d.doc_type)).length;
+  const invoiceCount = docs.filter(d=>INVOICE_TYPES_M.includes(d.doc_type)).length;
 
   const fmtDate=(iso)=>{
     if(!iso) return '—';
@@ -5425,7 +5443,8 @@ function MyPage({user}){
                       const DOC_LABEL={
                         invoice:    {label:'請求書',     bg:'#fef3e2',color:'#92400e'},
                         estimate:   {label:'見積書',     bg:'#e0e9f8',color:'#1e4db7'},
-                        fabric_estimate:{label:'生地見積書', bg:'#e8f5e9',color:'#1b5e20'},
+                        fabric_estimate:{label:'生地見積り', bg:'#e8f5e9',color:'#1b5e20'},
+                        iron_estimate:  {label:'鉄工見積書',   bg:'#eceff1',color:'#37474f'},
                         awning_estimate:{label:'オーニング見積書',bg:'#fff3e0',color:'#e65100'},
                         pawlo_estimate: {label:'パウロ見積書', bg:'#f3e5f5',color:'#6a1b9a'},
                         free_estimate:  {label:'自由見積書',  bg:'#e8eaf6',color:'#283593'},
