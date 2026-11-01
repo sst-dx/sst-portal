@@ -5074,9 +5074,18 @@ function DocDetailModal({doc, onClose, onSaved, onEdit}){
   };
 
   const items = Array.isArray(doc.items) ? doc.items : [];
-  const typeLabel = doc.doc_type==='invoice'?'請求書': doc.doc_type==='fabric_estimate'?'生地見積書':'見積書';
-  const typeBg = doc.doc_type==='invoice'?'#fef3e2': doc.doc_type==='fabric_estimate'?'#e8f7f0':'#e0e9f8';
-  const typeColor = doc.doc_type==='invoice'?'#92400e': doc.doc_type==='fabric_estimate'?'#0e6b42':'#1e4db7';
+  const DOC_META={
+    invoice:          {label:'請求書',       bg:'#fef3e2',color:'#92400e'},
+    estimate:         {label:'見積書',       bg:'#e0e9f8',color:'#1e4db7'},
+    fabric_estimate:  {label:'生地見積書',   bg:'#e8f5e9',color:'#1b5e20'},
+    awning_estimate:  {label:'オーニング見積書',bg:'#fff3e0',color:'#e65100'},
+    pawlo_estimate:   {label:'パウロ見積書', bg:'#f3e5f5',color:'#6a1b9a'},
+    free_estimate:    {label:'自由見積書',   bg:'#e8eaf6',color:'#283593'},
+    curtain_estimate: {label:'カーテン見積書',bg:'#e0f2f1',color:'#004d40'},
+    lease_estimate:   {label:'リース見積書', bg:'#fce4ec',color:'#880e4f'},
+    lease_invoice:    {label:'リース請求書', bg:'#fce4ec',color:'#880e4f'},
+  };
+  const {label:typeLabel,bg:typeBg,color:typeColor}=DOC_META[doc.doc_type]||DOC_META.estimate;
 
   return ReactDOM.createPortal(
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:9000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
@@ -5160,7 +5169,7 @@ function DocDetailModal({doc, onClose, onSaved, onEdit}){
               📄 PDF開く
             </a>
           )}
-          {onEdit&&(doc.doc_type==='estimate'||doc.doc_type==='invoice')&&(
+          {onEdit&&['estimate','invoice','lease_estimate','lease_invoice','fabric_estimate','awning_estimate','pawlo_estimate','free_estimate','curtain_estimate'].includes(doc.doc_type)&&(
             <button onClick={()=>{onClose();onEdit(doc);}}
               style={{padding:'8px 20px',border:'1.5px solid #1e7a3d',borderRadius:7,background:'#e8f5ee',color:'#1e7a3d',fontSize:13,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:5}}>
               ✏️ 編集する
@@ -5465,8 +5474,17 @@ function App(){
   if(!user) return <LoginPage onLogin={setUser}/>;
 
   const handleEditDoc=(doc)=>{
+    const DOC_PAGE={
+      lease_estimate:'quote', lease_invoice:'quote',
+      estimate:'quote',       invoice:'quote',
+      fabric_estimate:'fabric',
+      awning_estimate:'awning',
+      pawlo_estimate:'pawlo',
+      free_estimate:'free',
+      curtain_estimate:'curtain',
+    };
     setEditDocData(doc);
-    setPage('quote');
+    setPage(DOC_PAGE[doc.doc_type]||'quote');
   };
 
   const pages={
