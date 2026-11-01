@@ -2388,6 +2388,7 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
   const [customSpec,setCustomSpec]=useState('');
   const [customPrice,setCustomPrice]=useState('');
   const [showCustomForm,setShowCustomForm]=useState(false);
+  const [editingQtyName,setEditingQtyName]=useState(null);
 
   // ログインユーザーの苗字
   const staffLastName = React.useMemo(()=>{
@@ -2659,18 +2660,27 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
                     {items.map(item=>{
                       const inCart=cart.find(c=>c.name===item.name&&!c.custom);
                       return(
-                        <div key={item.name} onClick={()=>addToCart(item.name)}
+                        <div key={item.name}
                           style={{padding:'7px 12px',borderBottom:'1px solid var(--border-light)',display:'flex',alignItems:'center',justifyContent:'space-between',cursor:'pointer',background:inCart?'#f0fdf4':'#fff',transition:'background 0.1s'}}
                           onMouseOver={e=>e.currentTarget.style.background=inCart?'#dcfce7':'#f5f8ff'}
                           onMouseOut={e=>e.currentTarget.style.background=inCart?'#f0fdf4':'#fff'}>
-                          <div style={{flex:1,minWidth:0}}>
+                          <div style={{flex:1,minWidth:0}} onClick={()=>addToCart(item.name)}>
                             <div style={{fontWeight:600,fontSize:12,color:C.text,display:'flex',alignItems:'center',gap:5}}>
                               {item.name}
-                              {inCart&&<span style={{background:'#16a34a',color:'#fff',fontSize:9,borderRadius:3,padding:'1px 4px',fontWeight:700}}>×{inCart.qty}</span>}
+                              {inCart&&(editingQtyName===item.name?(
+                                <input type="number" min="1" autoFocus defaultValue={inCart.qty}
+                                  onFocus={e=>e.target.select()}
+                                  onClick={e=>e.stopPropagation()}
+                                  onBlur={e=>{const v=parseInt(e.target.value)||1;updateQty(item.name,v,false);setEditingQtyName(null);}}
+                                  onKeyDown={e=>{if(e.key==='Enter'){const v=parseInt(e.target.value)||1;updateQty(item.name,v,false);setEditingQtyName(null);}if(e.key==='Escape')setEditingQtyName(null);}}
+                                  style={{width:44,fontSize:13,fontWeight:800,textAlign:'center',border:'1.5px solid #16a34a',borderRadius:4,padding:'1px 3px',background:'#fff',color:'#16a34a'}}/>
+                              ):(
+                                <span onClick={e=>{e.stopPropagation();setEditingQtyName(item.name);}} style={{background:'#16a34a',color:'#fff',fontSize:9,borderRadius:3,padding:'1px 5px',fontWeight:700,cursor:'text',minWidth:20,textAlign:'center'}}>×{inCart.qty}</span>
+                              ))}
                             </div>
                             <div style={{fontSize:9,color:'var(--text-muted)',marginTop:1}}>¥{item.base.toLocaleString()}　{item.spec}</div>
                           </div>
-                          <div style={{background:inCart?'#16a34a':C.navy,color:'#fff',borderRadius:5,padding:'3px 9px',fontSize:10,fontWeight:700,flexShrink:0,marginLeft:8}}>
+                          <div onClick={()=>addToCart(item.name)} style={{background:inCart?'#16a34a':C.navy,color:'#fff',borderRadius:5,padding:'3px 9px',fontSize:10,fontWeight:700,flexShrink:0,marginLeft:8}}>
                             {inCart?'+追加':'追加'}
                           </div>
                         </div>
@@ -2725,11 +2735,12 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
                         <button onClick={()=>removeFromCart(it.custom?it.id:it.name,it.custom)} style={{background:'none',border:'none',color:'var(--text-muted)',cursor:'pointer',fontSize:12}}>×</button>
                       </div>
                       <div style={{display:'flex',alignItems:'center',gap:4}}>
-                        <button onClick={()=>updateQty(it.custom?it.id:it.name,it.qty-1,it.custom)} style={{width:18,height:18,border:'1px solid var(--border)',borderRadius:4,background:'#fff',cursor:'pointer',fontSize:11,fontWeight:700}}>－</button>
+                        <button onClick={()=>updateQty(it.custom?it.id:it.name,it.qty-1,it.custom)} style={{width:24,height:24,border:'1px solid var(--border)',borderRadius:5,background:'#fff',cursor:'pointer',fontSize:13,fontWeight:700}}>－</button>
                         <input type="number" min="1" value={it.qty}
                           onChange={e=>updateQty(it.custom?it.id:it.name,parseInt(e.target.value)||1,it.custom)}
-                          style={{width:36,fontSize:12,fontWeight:800,textAlign:'center',border:'1px solid var(--border)',borderRadius:4,padding:'1px 2px',background:'#fff',color:C.navy}}/>
-                        <button onClick={()=>updateQty(it.custom?it.id:it.name,it.qty+1,it.custom)} style={{width:18,height:18,border:'1px solid var(--border)',borderRadius:4,background:'#fff',cursor:'pointer',fontSize:11,fontWeight:700}}>＋</button>
+                          onFocus={e=>e.target.select()}
+                          style={{width:48,fontSize:14,fontWeight:800,textAlign:'center',border:'1.5px solid '+C.blue,borderRadius:5,padding:'2px 4px',background:'#fff',color:C.navy}}/>
+                        <button onClick={()=>updateQty(it.custom?it.id:it.name,it.qty+1,it.custom)} style={{width:24,height:24,border:'1px solid var(--border)',borderRadius:5,background:'#fff',cursor:'pointer',fontSize:13,fontWeight:700}}>＋</button>
                         <span style={{fontSize:10,color:'var(--text-muted)'}}>点</span>
                         <span style={{marginLeft:'auto',fontSize:11,fontWeight:700,color:C.navy}}>¥{itemTotal(it,days,setupMode).toLocaleString()}</span>
                       </div>
