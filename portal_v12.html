@@ -2483,6 +2483,7 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
               total_amount: total,
               date_str: dateStr || new Date().toISOString().slice(0,10),
               items: cart.map(it=>({name:it.name, qty:it.qty, cat:it.cat})),
+              note: quoteNote||'',
             }).select('id').single();
             if(error){ alert('保存エラー: '+error.message); return false; }
             // PDFをStorageにアップロード
