@@ -1336,7 +1336,7 @@ function AwningPrintContent({ r, qty, mode, discount }){
     {item:'運搬費・諸経費・副資材', detail:'商品代金の10%', qty:`${qty}式`, unit:`${calc.unsohi.toLocaleString()}円`, amount:`${unsohi.toLocaleString()}円`},
   ];
   if(discountAmt!==0){
-    lines.push({item:'特別値引き', detail:`税込${total.toLocaleString()}円調整`, qty:'1式', unit:`${discountAmt.toLocaleString()}円`, amount:`${discountAmt.toLocaleString()}円`, minus:true});
+    lines.push({item:'値引き調整', detail:`税込${total.toLocaleString()}円調整`, qty:'1式', unit:`${discountAmt.toLocaleString()}円`, amount:`${discountAmt.toLocaleString()}円`, minus:true});
   }
 
   return(
@@ -1359,7 +1359,7 @@ function AwningPrintContent({ r, qty, mode, discount }){
       <BillDetailTable lines={lines} sub={sub} tax={tax} total={total}/>
       {discountAmt!==0 ? (
         <BillNote>
-          元見積税込 {origTotal.toLocaleString()}円より、特別値引き {discountTaxInclDiff.toLocaleString()}円を適用し、税込 {total.toLocaleString()}円といたします。
+          元見積税込 {origTotal.toLocaleString()}円より、値引き調整 {discountTaxInclDiff.toLocaleString()}円を適用し、税込 {total.toLocaleString()}円といたします。
         </BillNote>
       ) : (r.note ? <BillNote>{r.note}</BillNote> : null)}
       {r.isWOversize&&(
@@ -1410,7 +1410,7 @@ function LeasePrintContent({ data }){
 
   // 値引き行
   if(discountAmt && discountAmt<0){
-    lines.push({item:'特別値引き', detail:'', qty:'1式', unit:`${discountAmt.toLocaleString()}円`, amount:`${discountAmt.toLocaleString()}円`, minus:true});
+    lines.push({item:'値引き調整', detail:'', qty:'1式', unit:`${discountAmt.toLocaleString()}円`, amount:`${discountAmt.toLocaleString()}円`, minus:true});
   }
 
   // 日程の表示テキスト
@@ -1523,7 +1523,7 @@ function PawloPrintContent({ data }){
   const { clientName, honorific, quoteDate, projectName, lines, optLines, sub, tax, total, note, adjust, adjustLabel } = data;
   const allLines = [...lines, ...optLines];
   if(adjust && adjust!==0){
-    allLines.push({item:adjustLabel||'特別調整', detail:adjust<0?'特別値引き':'特別割増', qty:'1式', unit:`${adjust.toLocaleString()}円`, amount:`${adjust.toLocaleString()}円`, minus:adjust<0});
+    allLines.push({item:adjustLabel||'値引き調整', detail:adjust<0?'値引き調整':'特別割増', qty:'1式', unit:`${adjust.toLocaleString()}円`, amount:`${adjust.toLocaleString()}円`, minus:adjust<0});
   }
   return(
     <>
@@ -2372,7 +2372,8 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
   const [days,setDays]=useState(()=>editDocData?.days||1);
   const [setupMode,setSetupMode]=useState(()=>editDocData?.setup_mode||'none');
   const [quoteNote,setQuoteNote]=useState(()=>editDocData?.note||'');
-  const [discountTarget,setDiscountTarget]=useState('');
+  const [discountMode,setDiscountMode]=useState('final'); // 'final'=最終金額指定 / 'amount'=値引き金額入力
+  const [discountInput,setDiscountInput]=useState('');
   const [customerName,setCustomerName]=useState(()=>editDocData?.customer_name||'');
   const [customerHonorific,setCustomerHonorific]=useState(()=>editDocData?.customer_honorific||'御中');
   const [projectName,setProjectName]=useState(()=>editDocData?.project_name||'');
@@ -2469,8 +2470,15 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
   };
 
   const cartSub = cart.reduce((a,it)=>a+itemTotal(it,days,setupMode),0);
-  const discountTargetInt = discountTarget ? parseInt(discountTarget) : 0;
-  const discountAmt = discountTargetInt > 0 ? Math.round(discountTargetInt/1.1) - cartSub : 0;
+  const discountInputInt = discountInput ? parseInt(discountInput) : 0;
+  let discountAmt = 0;
+  if(discountInputInt > 0){
+    if(discountMode==='final'){
+      discountAmt = Math.round(discountInputInt/1.1) - cartSub;
+    } else {
+      discountAmt = -Math.round(discountInputInt/1.1);
+    }
+  }
   const subTotal = cartSub + discountAmt;
   const tax = Math.floor(subTotal*0.1);
   const total = subTotal + tax;
@@ -2797,18 +2805,52 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
               />
             </div>
 
-            {/* 値引き */}
+            {/* 値引き調整 */}
             <div style={{background:'var(--surface)',borderRadius:10,border:'1px solid var(--border)',padding:12}}>
-              <div style={{fontSize:11,fontWeight:800,color:'#c0392b',marginBottom:6}}>🏷️ 特別値引き（任意）</div>
-              <input
-                type="number"
-                value={discountTarget}
-                onChange={e=>setDiscountTarget(e.target.value)}
-                placeholder="税込目標額（例：98000）"
-                style={{...inp,fontSize:12,padding:'6px 8px'}}
-              />
-              {discountAmt<0&&<div style={{fontSize:10,color:'#c0392b',marginTop:4,fontWeight:700}}>値引き額：¥{Math.abs(discountAmt).toLocaleString()}（税別）を明細に追加</div>}
-              <div style={{fontSize:9,color:'var(--text-muted)',marginTop:3}}>入力すると税込でこの金額になるよう値引き行を赤字で追加。空欄なら値引きなし。</div>
+              <div style={{fontSize:11,fontWeight:800,color:'#c0392b',marginBottom:8}}>🏷️ 値引き調整（任意）</div>
+              {/* モード切替 */}
+              <div style={{display:'flex',gap:0,marginBottom:8,borderRadius:6,overflow:'hidden',border:'1.5px solid #c0392b'}}>
+                <button
+                  onClick={()=>{setDiscountMode('amount');setDiscountInput('');}}
+                  style={{flex:1,padding:'5px 4px',fontSize:10,fontWeight:700,border:'none',cursor:'pointer',
+                    background:discountMode==='amount'?'#c0392b':'transparent',
+                    color:discountMode==='amount'?'#fff':'#c0392b'}}
+                >値引き金額を入力</button>
+                <button
+                  onClick={()=>{setDiscountMode('final');setDiscountInput('');}}
+                  style={{flex:1,padding:'5px 4px',fontSize:10,fontWeight:700,border:'none',borderLeft:'1.5px solid #c0392b',cursor:'pointer',
+                    background:discountMode==='final'?'#c0392b':'transparent',
+                    color:discountMode==='final'?'#fff':'#c0392b'}}
+                >最終金額を指定</button>
+              </div>
+              {discountMode==='amount'?(
+                <>
+                  <input
+                    type="number"
+                    value={discountInput}
+                    onChange={e=>setDiscountInput(e.target.value)}
+                    placeholder="値引き額・税込（例：5000）"
+                    style={{...inp,fontSize:12,padding:'6px 8px'}}
+                  />
+                  {discountInputInt>0&&<div style={{fontSize:10,color:'#c0392b',marginTop:4,fontWeight:700}}>
+                    税込合計：¥{total.toLocaleString()}（値引き税別：¥{Math.abs(discountAmt).toLocaleString()}）
+                  </div>}
+                </>
+              ):(
+                <>
+                  <input
+                    type="number"
+                    value={discountInput}
+                    onChange={e=>setDiscountInput(e.target.value)}
+                    placeholder="税込目標額（例：98000）"
+                    style={{...inp,fontSize:12,padding:'6px 8px'}}
+                  />
+                  {discountAmt<0&&<div style={{fontSize:10,color:'#c0392b',marginTop:4,fontWeight:700}}>
+                    値引き金額：¥{Math.round(Math.abs(discountAmt)*1.1).toLocaleString()}（税込）を明細に追加
+                  </div>}
+                </>
+              )}
+              <div style={{fontSize:9,color:'var(--text-muted)',marginTop:3}}>空欄なら値引きなし。明細に「値引き調整」行を赤字で追加します。</div>
             </div>
 
             {/* 合計・PDFボタン */}
