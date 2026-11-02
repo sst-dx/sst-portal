@@ -2777,9 +2777,14 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
                 <div style={{display:'grid',gap:4,maxHeight:220,overflowY:'auto'}}>
                   {cart.map((it,idx)=>(
                     it.type==='ディバイダー'?(
-                      <div key={'ディバイダー-'+idx} style={{background:C.navy,borderRadius:6,padding:'5px 9px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
-                        <span style={{fontSize:11,fontWeight:800,color:'#fff'}}>📌 {it.label}</span>
-                        <button onClick={()=>setCart(prev=>prev.filter((_,i)=>i!==idx))} style={{background:'none',border:'none',color:'rgba(255,255,255,0.7)',cursor:'pointer',fontSize:12}}>×</button>
+                      <div key={'ディバイダー-'+idx} style={{background:C.navy,borderRadius:6,padding:'5px 9px',display:'flex',alignItems:'center',gap:6}}>
+                        <span style={{fontSize:10,color:'rgba(255,255,255,0.7)',flexShrink:0}}>📌</span>
+                        <input
+                          value={it.label}
+                          onChange={e=>{const v=e.target.value;setCart(prev=>prev.map((c,i)=>i===idx?{...c,label:v}:c));}}
+                          style={{flex:1,background:'transparent',border:'none',borderBottom:'1px solid rgba(255,255,255,0.4)',color:'#fff',fontSize:11,fontWeight:800,padding:'1px 2px',outline:'none',minWidth:0}}
+                        />
+                        <button onClick={()=>setCart(prev=>prev.filter((_,i)=>i!==idx))} style={{background:'none',border:'none',color:'rgba(255,255,255,0.7)',cursor:'pointer',fontSize:12,flexShrink:0}}>×</button>
                       </div>
                     ):(
                     <div key={it.custom?it.id:it.name} style={{background:it.custom?'#f5f3ff':'var(--bg)',borderRadius:6,padding:'6px 9px',border:it.custom?'1px solid #c4b5fd':'1px solid transparent'}}>
