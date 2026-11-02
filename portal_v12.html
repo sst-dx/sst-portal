@@ -5080,6 +5080,7 @@ function DocDetailModal({doc, onClose, onSaved, onEdit}){
   const [editNote, setEditNote] = useState(doc.note||'');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [showPdfView, setShowPdfView] = useState(false);
 
   const fmtDate=(iso)=>{
     if(!iso) return '—';
@@ -5125,7 +5126,41 @@ function DocDetailModal({doc, onClose, onSaved, onEdit}){
   };
   const {label:typeLabel,bg:typeBg,color:typeColor}=DOC_META[doc.doc_type]||DOC_META.estimate;
 
+  // リース系ドキュメントのPDF閲覧
+  const isLease = ['lease_estimate','lease_invoice'].includes(doc.doc_type);
+  const leaseDocType = doc.doc_type==='lease_invoice' ? 'invoice' : 'estimate';
+
   return ReactDOM.createPortal(
+    <>
+    {showPdfView && isLease && (
+      <PrintModal onClose={()=>setShowPdfView(false)} docType={leaseDocType}>
+        <LeasePrintContent data={{
+          items: Array.isArray(doc.items)?doc.items:[],
+          days: doc.days||1,
+          setupMode: doc.setup_mode||'none',
+          customerName: doc.customer_name||'',
+          customerHonorific: doc.customer_honorific||'御中',
+          projectName: doc.project_name||'',
+          dateStr: doc.date_str||'',
+          staffLastName: doc.created_by_name||'',
+          cartSub: doc.total_amount ? Math.round(doc.total_amount/1.1) : 0,
+          tax: doc.total_amount ? doc.total_amount - Math.round(doc.total_amount/1.1) : 0,
+          total: doc.total_amount||0,
+          note: editNote,
+          discountAmt: doc.discount_amt||0,
+          docType: leaseDocType,
+          setupDateFrom: doc.setup_date_from||null,
+          setupDateTo: doc.setup_date_to||null,
+          eventDateFrom: doc.event_date_from||null,
+          eventDateTo: doc.event_date_to||null,
+          teardownDateFrom: doc.teardown_date_from||null,
+          teardownDateTo: doc.teardown_date_to||null,
+          setupUndef: doc.setup_undef||false,
+          eventUndef: doc.event_undef||false,
+          teardownUndef: doc.teardown_undef||false,
+        }}/>
+      </PrintModal>
+    )}
     <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.45)',zIndex:9000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
       <div style={{background:'#fff',borderRadius:14,width:'100%',maxWidth:640,maxHeight:'90vh',display:'flex',flexDirection:'column',boxShadow:'0 20px 60px rgba(0,0,0,0.25)'}}>
         {/* ヘッダー */}
@@ -5201,6 +5236,12 @@ function DocDetailModal({doc, onClose, onSaved, onEdit}){
         {/* フッター */}
         <div style={{padding:'12px 20px',borderTop:'1px solid var(--border)',display:'flex',gap:10,flexShrink:0,flexWrap:'wrap'}}>
           <button onClick={onClose} style={{padding:'8px 20px',border:'1px solid var(--border)',borderRadius:7,background:'#fff',fontSize:13,cursor:'pointer',color:'var(--text-sub)',fontWeight:600}}>閉じる</button>
+          {isLease&&(
+            <button onClick={()=>setShowPdfView(true)}
+              style={{padding:'8px 20px',border:'1.5px solid #880e4f',borderRadius:7,background:'#fce4ec',color:'#880e4f',fontSize:13,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:5}}>
+              🖨️ PDFを見る
+            </button>
+          )}
           {doc.pdf_url&&(
             <a href={doc.pdf_url} target="_blank" rel="noopener noreferrer"
               style={{padding:'8px 20px',border:'1.5px solid #1e4db7',borderRadius:7,background:'#e8eef8',color:'#1e4db7',fontSize:13,fontWeight:700,cursor:'pointer',textDecoration:'none',display:'flex',alignItems:'center',gap:6}}>
@@ -5220,6 +5261,7 @@ function DocDetailModal({doc, onClose, onSaved, onEdit}){
         </div>
       </div>
     </div>
+    </>
   , document.body);
 }
 
