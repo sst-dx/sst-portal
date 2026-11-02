@@ -1395,6 +1395,8 @@ function LeasePrintContent({ data }){
   const displayDays = eventDays || days;
 
   const lines = items.map(item=>{
+    // ブース区切り
+    if(item.type==='ディバイダー') return {rowType:'header', item:item.label||'ブース'};
     // カスタム商品はitem自体の値を、通常商品はPRICE_TABLEを参照
     const p = item.custom ? item : PRICE_TABLE[item.name];
     if(!p) return null;
@@ -2358,6 +2360,7 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
   const buildCartFromDoc=(doc)=>{
     if(!doc||!Array.isArray(doc.items)) return [];
     return doc.items.map(it=>{
+      if(it.type==='ディバイダー') return {type:'ディバイダー', label:it.label||'ブース'};
       const master = PRICE_TABLE[it.name];
       if(master) return {name:it.name, qty:it.qty||1, ...master};
       // マスターにない場合はカスタム扱い
@@ -2469,7 +2472,7 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
     return Math.floor((item.base+calcExt(item,d)+calcItemSetup(item,mode))*item.qty);
   };
 
-  const cartSub = cart.reduce((a,it)=>a+itemTotal(it,days,setupMode),0);
+  const cartSub = cart.filter(it=>it.type!=='ディバイダー').reduce((a,it)=>a+itemTotal(it,days,setupMode),0);
   const discountInputInt = discountInput ? parseInt(discountInput) : 0;
   let discountAmt = 0;
   if(discountInputInt > 0){
@@ -2510,9 +2513,11 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
               project_name: projectName||'',
               total_amount: total,
               date_str: dateStr || new Date().toISOString().slice(0,10),
-              items: cart.map(it=>it.custom
-                ? {name:it.name, qty:it.qty, cat:it.cat, base:it.base||0, ext1w:it.ext1w||0, ext4w:it.ext4w||0, ext4wplus:it.ext4wplus||0, spec:it.spec||'', custom:true}
-                : {name:it.name, qty:it.qty, cat:it.cat}),
+              items: cart.map(it=>it.type==='ディバイダー'
+                ? {type:'ディバイダー', label:it.label}
+                : it.custom
+                  ? {name:it.name, qty:it.qty, cat:it.cat, base:it.base||0, ext1w:it.ext1w||0, ext4w:it.ext4w||0, ext4wplus:it.ext4wplus||0, spec:it.spec||'', custom:true}
+                  : {name:it.name, qty:it.qty, cat:it.cat}),
               note: quoteNote||'',
               setup_mode: setupMode,
               days: days,
@@ -2763,14 +2768,20 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
             {/* カート */}
             <div style={{background:'var(--surface)',borderRadius:10,border:'1px solid var(--border)',padding:12}}>
               <div style={{fontSize:11,fontWeight:800,color:C.navy,marginBottom:8,display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-                🛒 追加済み商品（{cart.length}品目）
+                🛒 追加済み商品（{cart.filter(it=>it.type!=='ディバイダー').length}品目）
                 {cart.length>0&&<button onClick={()=>setCart([])} style={{background:'none',border:'none',fontSize:10,color:'var(--text-muted)',cursor:'pointer'}}>全削除</button>}
               </div>
               {cart.length===0?(
                 <div style={{textAlign:'center',color:'var(--text-muted)',fontSize:12,padding:'10px 0'}}>上の物品リストから商品を追加</div>
               ):(
                 <div style={{display:'grid',gap:4,maxHeight:220,overflowY:'auto'}}>
-                  {cart.map(it=>(
+                  {cart.map((it,idx)=>(
+                    it.type==='ディバイダー'?(
+                      <div key={'ディバイダー-'+idx} style={{background:C.navy,borderRadius:6,padding:'5px 9px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+                        <span style={{fontSize:11,fontWeight:800,color:'#fff'}}>📌 {it.label}</span>
+                        <button onClick={()=>setCart(prev=>prev.filter((_,i)=>i!==idx))} style={{background:'none',border:'none',color:'rgba(255,255,255,0.7)',cursor:'pointer',fontSize:12}}>×</button>
+                      </div>
+                    ):(
                     <div key={it.custom?it.id:it.name} style={{background:it.custom?'#f5f3ff':'var(--bg)',borderRadius:6,padding:'6px 9px',border:it.custom?'1px solid #c4b5fd':'1px solid transparent'}}>
                       <div style={{display:'flex',alignItems:'center',gap:5,marginBottom:3}}>
                         {it.custom&&<span style={{fontSize:8,background:'#6366f1',color:'#fff',borderRadius:3,padding:'1px 4px',fontWeight:700}}>カスタム</span>}
@@ -2788,9 +2799,18 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
                         <span style={{marginLeft:'auto',fontSize:11,fontWeight:700,color:C.navy}}>¥{itemTotal(it,days,setupMode).toLocaleString()}</span>
                       </div>
                     </div>
+                    )
                   ))}
                 </div>
               )}
+              <button
+                onClick={()=>{
+                  const divCount=cart.filter(it=>it.type==='ディバイダー').length;
+                  setCart(prev=>[...prev,{type:'ディバイダー',label:`ブース${divCount+2}`}]);
+                }}
+                style={{marginTop:6,width:'100%',padding:'5px',fontSize:10,fontWeight:700,border:'1.5px dashed '+C.navy,borderRadius:6,background:'transparent',color:C.navy,cursor:'pointer'}}>
+                ＋ ブース区切りを追加
+              </button>
             </div>
 
             {/* 備考・メモ欄 */}
