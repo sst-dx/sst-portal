@@ -1374,7 +1374,7 @@ function AwningPrintContent({ r, qty, mode, discount }){
 }
 function LeasePrintContent({ data }){
   const {customerName,customerHonorific,projectName,dateStr,staffLastName,items,days,setupMode,docType,
-    cartSub,tax,total,quoteDate,note,
+    cartSub,tax,total,quoteDate,note,discountAmt,
     setupDateFrom,setupDateTo,eventDateFrom,eventDateTo,teardownDateFrom,teardownDateTo,
     setupUndef,eventUndef,teardownUndef}=data;
   const fmtDateRange=(from,to)=>{
@@ -1383,9 +1383,9 @@ function LeasePrintContent({ data }){
     return to&&to!==from?`${f(from)} 〜 ${f(to)}`:f(from);
   };
   const sub = cartSub||0;
-  const subAfterAdj = sub;
-  const taxCalc = Math.round(subAfterAdj*0.1);
-  const totalCalc = subAfterAdj + taxCalc;
+  const subAfterAdj = (typeof total==='number' && typeof tax==='number') ? total-tax : (cartSub||0);
+  const taxCalc = tax||0;
+  const totalCalc = total||0;
   const setupShort={both:'設営撤去込',setup:'設営込',teardown:'撤去込',none:''};
 
   // イベント本番日から利用日数を算出（設定済みかつ非未定の場合）
@@ -1408,6 +1408,11 @@ function LeasePrintContent({ data }){
     return {item:item.name, detail, qty:`${item.qty}`, unit:`${p.base.toLocaleString()}円`, amount:`${tot.toLocaleString()}円`};
   }).filter(Boolean);
 
+  // 値引き行
+  if(discountAmt && discountAmt<0){
+    lines.push({item:'特別値引き', detail:'', qty:'1式', unit:`${discountAmt.toLocaleString()}円`, amount:`${discountAmt.toLocaleString()}円`, minus:true});
+  }
+
   // 日程の表示テキスト
   const dateText=(undef,from,to)=> undef?'未定':(from?fmtDateRange(from,to):null);
 
@@ -1425,7 +1430,7 @@ function LeasePrintContent({ data }){
       <BillHead title={docType==='invoice'?'請求書':'御見積書'} dateLabel={docType==='invoice'?'請求日':'見積作成日'} subjectLabel="現場名" quoteDate={quoteDate||dateStr} subject={projectName||'リース商品お見積もり'} addressee={withHonorific(customerName,customerHonorific)} staffLastName={staffLastName}/>
       <BillTotalBox taxIncl={totalCalc} taxExcl={subAfterAdj} tax={taxCalc} docType={docType}/>
       {specRows.length>0&&<BillSpecTable rows={specRows}/>}
-      <BillSectionTitle>お見積もり内容</BillSectionTitle>
+      <BillSectionTitle>内容</BillSectionTitle>
       <BillDetailTable lines={lines} sub={subAfterAdj} tax={taxCalc} total={totalCalc} note={note}/>
       <BillFooterName/>
       {docType==='invoice'&&<BillPaymentInfo/>}
@@ -2355,6 +2360,7 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
   const [days,setDays]=useState(1);
   const [setupMode,setSetupMode]=useState('none');
   const [quoteNote,setQuoteNote]=useState(()=>editDocData?.note||'');
+  const [discountTarget,setDiscountTarget]=useState('');
   const [customerName,setCustomerName]=useState(()=>editDocData?.customer_name||'');
   const [customerHonorific,setCustomerHonorific]=useState('御中');
   const [projectName,setProjectName]=useState(()=>editDocData?.project_name||'');
@@ -2451,7 +2457,9 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
   };
 
   const cartSub = cart.reduce((a,it)=>a+itemTotal(it,days,setupMode),0);
-  const subTotal = cartSub;
+  const discountTargetInt = discountTarget ? parseInt(discountTarget) : 0;
+  const discountAmt = discountTargetInt > 0 ? Math.round(discountTargetInt/1.1) - cartSub : 0;
+  const subTotal = cartSub + discountAmt;
   const tax = Math.floor(subTotal*0.1);
   const total = subTotal + tax;
 
@@ -2763,12 +2771,27 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
               />
             </div>
 
+            {/* 値引き */}
+            <div style={{background:'var(--surface)',borderRadius:10,border:'1px solid var(--border)',padding:12}}>
+              <div style={{fontSize:11,fontWeight:800,color:'#c0392b',marginBottom:6}}>🏷️ 特別値引き（任意）</div>
+              <input
+                type="number"
+                value={discountTarget}
+                onChange={e=>setDiscountTarget(e.target.value)}
+                placeholder="税込目標額（例：98000）"
+                style={{...inp,fontSize:12,padding:'6px 8px'}}
+              />
+              {discountAmt<0&&<div style={{fontSize:10,color:'#c0392b',marginTop:4,fontWeight:700}}>値引き額：¥{Math.abs(discountAmt).toLocaleString()}（税別）を明細に追加</div>}
+              <div style={{fontSize:9,color:'var(--text-muted)',marginTop:3}}>入力すると税込でこの金額になるよう値引き行を赤字で追加。空欄なら値引きなし。</div>
+            </div>
+
             {/* 合計・PDFボタン */}
             <div style={{background:'linear-gradient(135deg,#0f2a5c,#1e4db7)',borderRadius:10,padding:14,color:'#fff',flexShrink:0}}>
               <div style={{fontSize:10,opacity:0.75,marginBottom:2}}>お見積金額（税込）</div>
               <div style={{fontSize:24,fontWeight:900,marginBottom:6}}>¥{total.toLocaleString()}</div>
               <div style={{fontSize:10,opacity:0.7,display:'grid',gap:1}}>
                 <div style={{display:'flex',justifyContent:'space-between'}}><span>商品小計</span><span>¥{cartSub.toLocaleString()}</span></div>
+                {discountAmt<0&&<div style={{display:'flex',justifyContent:'space-between',color:'#fca5a5'}}><span>特別値引き</span><span>¥{discountAmt.toLocaleString()}</span></div>}
                 <div style={{display:'flex',justifyContent:'space-between'}}><span>消費税10%</span><span>¥{tax.toLocaleString()}</span></div>
               </div>
               <button disabled={cart.length===0} onClick={()=>{
@@ -2806,7 +2829,7 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
                   customerName, customerHonorific, projectName,
                   dateStr:dateStr||new Date().toISOString().slice(0,10),
                   staffLastName,
-                  cartSub, subTotal, tax, total, note:quoteNote,
+                  cartSub, subTotal, tax, total, note:quoteNote, discountAmt,
                   calcExt, calcItemSetup, itemTotal, docType,
                   setupDateFrom, setupDateTo, eventDateFrom, eventDateTo, teardownDateFrom, teardownDateTo,
                   setupUndef, eventUndef, teardownUndef,
