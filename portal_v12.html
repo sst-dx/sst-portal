@@ -2543,13 +2543,13 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
 
   return(
     <div>
-      {showPdf&&cart.length>0&&(
-        {showLoadingSheet&&cart.length>0&&(
+      {showLoadingSheet&&cart.length>0&&(
         <LoadingSheetModal
           onClose={()=>setShowLoadingSheet(false)}
           cart={cart}
         />
       )}
+      {showPdf&&cart.length>0&&(
       <PrintModal
           onClose={()=>setShowPdf(false)}
           docType={docType}
