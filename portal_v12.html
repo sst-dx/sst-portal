@@ -2447,6 +2447,7 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
   const [eventUndef,setEventUndef]=useState(()=>editDocData?.event_undef||false);
   const [teardownUndef,setTeardownUndef]=useState(()=>editDocData?.teardown_undef||false);
   const [showPdf,setShowPdf]=useState(false);
+  const [showLoadingSheet,setShowLoadingSheet]=useState(false);
   const [docType,setDocType]=useState('estimate');
   // カスタム商品入力フォーム
   const [customName,setCustomName]=useState('');
@@ -4059,7 +4060,6 @@ function IronPage(){
   const [search, setSearch] = useState('');
   const [lines, setLines] = useState([]); // {id,sub,spec,delivery,qty}
   const [showPdf, setShowPdf] = useState(false);
-  const [showLoadingSheet, setShowLoadingSheet] = useState(false);
   const [customer, setCustomer] = useState('');
   const [subject, setSubject] = useState('');
   const [adjustLabel, setAdjustLabel] = useState('');
