@@ -139,7 +139,7 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)!im
   .bill-sheet tr{page-break-inside:avoid;}
   @page{
     size:A4 portrait;
-    margin:10mm;
+    margin:0;
   }
 }
 </style>
@@ -1090,7 +1090,7 @@ function BillConfirm(){
 }
 
 function BillFooterName(){
-  return <div style={{textAlign:'center',fontSize:20,fontWeight:900,marginTop:10,color:'#000'}}>砂辺松福テント株式会社</div>;
+  return <div className="no-print" style={{textAlign:'center',fontSize:20,fontWeight:900,marginTop:10,color:'#000'}}>砂辺松福テント株式会社</div>;
 }
 
 function BillPaymentInfo(){
@@ -1400,11 +1400,11 @@ function LeasePrintContent({ data }){
     if(!p) return null;
     const base=p.base*item.qty;
     const setup=item.custom ? 0 : calcItemSetup(p,item.qty,setupMode);
-    const ext=item.custom ? 0 : calcExt(p,displayDays)*item.qty;
+    const ext=calcExt(p,displayDays)*item.qty;
     const tot=Math.floor(base+setup+ext);
     let detail=item.custom ? (item.spec||'') : p.spec;
     if(!item.custom && setupMode!=='none') detail+=` ／ ${setupShort[setupMode]}`;
-    if(!item.custom && displayDays>1) detail+=` ／ 延長${displayDays-1}日`;
+    if(displayDays>1) detail+=` ／ 延長${displayDays-1}日`;
     return {item:item.name, detail, qty:`${item.qty}`, unit:`${p.base.toLocaleString()}円`, amount:`${tot.toLocaleString()}円`};
   }).filter(Boolean);
 
@@ -1429,11 +1429,23 @@ function LeasePrintContent({ data }){
     <>
       <BillHead title={docType==='invoice'?'請求書':'御見積書'} dateLabel={docType==='invoice'?'請求日':'見積作成日'} subjectLabel="現場名" quoteDate={quoteDate||dateStr} subject={projectName||'リース商品お見積もり'} addressee={withHonorific(customerName,customerHonorific)} staffLastName={staffLastName}/>
       <BillTotalBox taxIncl={totalCalc} taxExcl={subAfterAdj} tax={taxCalc} docType={docType}/>
-      {specRows.length>0&&<BillSpecTable rows={specRows}/>}
+      {(specRows.length>0||docType==='invoice')&&(
+        <div style={{display:'flex',gap:8,marginBottom:8,alignItems:'flex-start'}}>
+          {specRows.length>0&&(
+            <div style={{flex:'0 0 55%'}}>
+              <BillSpecTable rows={specRows}/>
+            </div>
+          )}
+          {docType==='invoice'&&(
+            <div style={{flex:1,minWidth:0}}>
+              <BillPaymentInfo/>
+            </div>
+          )}
+        </div>
+      )}
       <BillSectionTitle>内容</BillSectionTitle>
       <BillDetailTable lines={lines} sub={subAfterAdj} tax={taxCalc} total={totalCalc} note={note}/>
       <BillFooterName/>
-      {docType==='invoice'&&<BillPaymentInfo/>}
     </>
   );
 }
@@ -2349,7 +2361,7 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
       const master = PRICE_TABLE[it.name];
       if(master) return {name:it.name, qty:it.qty||1, ...master};
       // マスターにない場合はカスタム扱い
-      return {name:it.name, qty:it.qty||1, base:0, ext1w:0, ext4w:0, ext4wplus:0, setup:0, cat:it.cat||'その他', spec:'', custom:true, id:'restored-'+it.name};
+      return {name:it.name, qty:it.qty||1, base:it.base||0, ext1w:it.ext1w||0, ext4w:it.ext4w||0, ext4wplus:it.ext4wplus||0, setup:0, cat:it.cat||'その他', spec:it.spec||'', custom:true, id:'restored-'+it.name};
     });
   };
 
@@ -2357,12 +2369,12 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
   const [selCat,setSelCat]=useState(null);
   const [search,setSearch]=useState('');
 
-  const [days,setDays]=useState(1);
-  const [setupMode,setSetupMode]=useState('none');
+  const [days,setDays]=useState(()=>editDocData?.days||1);
+  const [setupMode,setSetupMode]=useState(()=>editDocData?.setup_mode||'none');
   const [quoteNote,setQuoteNote]=useState(()=>editDocData?.note||'');
   const [discountTarget,setDiscountTarget]=useState('');
   const [customerName,setCustomerName]=useState(()=>editDocData?.customer_name||'');
-  const [customerHonorific,setCustomerHonorific]=useState('御中');
+  const [customerHonorific,setCustomerHonorific]=useState(()=>editDocData?.customer_honorific||'御中');
   const [projectName,setProjectName]=useState(()=>editDocData?.project_name||'');
   const [dateStr,setDateStr]=useState(()=>editDocData?.date_str||'');
 
@@ -2377,16 +2389,16 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
       editInitialized.current=false;
     }
   },[editDocData]);
-  const [setupDateFrom,setSetupDateFrom]=useState('');
-  const [setupDateTo,setSetupDateTo]=useState('');
-  const [eventDateFrom,setEventDateFrom]=useState('');
-  const [eventDateTo,setEventDateTo]=useState('');
-  const [teardownDateFrom,setTeardownDateFrom]=useState('');
-  const [teardownDateTo,setTeardownDateTo]=useState('');
+  const [setupDateFrom,setSetupDateFrom]=useState(()=>editDocData?.setup_date_from||'');
+  const [setupDateTo,setSetupDateTo]=useState(()=>editDocData?.setup_date_to||'');
+  const [eventDateFrom,setEventDateFrom]=useState(()=>editDocData?.event_date_from||'');
+  const [eventDateTo,setEventDateTo]=useState(()=>editDocData?.event_date_to||'');
+  const [teardownDateFrom,setTeardownDateFrom]=useState(()=>editDocData?.teardown_date_from||'');
+  const [teardownDateTo,setTeardownDateTo]=useState(()=>editDocData?.teardown_date_to||'');
   // 未定フラグ
-  const [setupUndef,setSetupUndef]=useState(false);
-  const [eventUndef,setEventUndef]=useState(false);
-  const [teardownUndef,setTeardownUndef]=useState(false);
+  const [setupUndef,setSetupUndef]=useState(()=>editDocData?.setup_undef||false);
+  const [eventUndef,setEventUndef]=useState(()=>editDocData?.event_undef||false);
+  const [teardownUndef,setTeardownUndef]=useState(()=>editDocData?.teardown_undef||false);
   const [showPdf,setShowPdf]=useState(false);
   const [docType,setDocType]=useState('estimate');
   // カスタム商品入力フォーム
@@ -2490,8 +2502,22 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
               project_name: projectName||'',
               total_amount: total,
               date_str: dateStr || new Date().toISOString().slice(0,10),
-              items: cart.map(it=>({name:it.name, qty:it.qty, cat:it.cat})),
+              items: cart.map(it=>it.custom
+                ? {name:it.name, qty:it.qty, cat:it.cat, base:it.base||0, ext1w:it.ext1w||0, ext4w:it.ext4w||0, ext4wplus:it.ext4wplus||0, spec:it.spec||'', custom:true}
+                : {name:it.name, qty:it.qty, cat:it.cat}),
               note: quoteNote||'',
+              setup_mode: setupMode,
+              days: days,
+              customer_honorific: customerHonorific,
+              setup_date_from: setupDateFrom||null,
+              setup_date_to: setupDateTo||null,
+              event_date_from: eventDateFrom||null,
+              event_date_to: eventDateTo||null,
+              teardown_date_from: teardownDateFrom||null,
+              teardown_date_to: teardownDateTo||null,
+              setup_undef: setupUndef,
+              event_undef: eventUndef,
+              teardown_undef: teardownUndef,
             }).select('id').single();
             if(error){ alert('保存エラー: '+error.message); return false; }
             // PDFをStorageにアップロード
