@@ -2781,7 +2781,7 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
                   {cart.map((it,idx)=>{
                     const insertDivider=(at)=>{
                       const divCount=cart.filter(c=>c.type==='divider').length;
-                      const newDiv={type:'divider',label:'ブース'+(divCount+2)};
+                      const newDiv={type:'divider',label:'ブース1'};
                       setCart(prev=>[...prev.slice(0,at),newDiv,...prev.slice(at)]);
                     };
                     return (<React.Fragment key={it.type==='divider'?'div-'+idx:(it.custom?it.id:it.name)+'-'+idx}>
@@ -2822,7 +2822,7 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
               )}
               {cart.length===0&&<button
                 onClick={()=>{
-                  setCart(prev=>[...prev,{type:'divider',label:'ブース2'}]);
+                  setCart(prev=>[...prev,{type:'divider',label:'ブース1'}]);
                 }}
                 style={{marginTop:6,width:'100%',padding:'5px',fontSize:10,fontWeight:700,border:'1.5px dashed '+C.navy,borderRadius:6,background:'transparent',color:C.navy,cursor:'pointer'}}>
                 ＋ ブース区切りを追加
