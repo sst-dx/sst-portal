@@ -140,6 +140,12 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)!im
   .bill-sheet thead{display:table-header-group!important;}
   .bill-sheet thead tr{page-break-inside:avoid;page-break-after:avoid;}
   .bill-sheet tbody tr{page-break-inside:avoid;}
+  .bill-page-header-row td{position:relative;}
+  .bill-page-header-row td::after{
+    content:"— " counter(page) " ページ目";
+    position:absolute;right:13px;top:50%;transform:translateY(-50%);
+    font-size:11px;font-weight:400;color:#555;
+  }
   .print-page-footer{
     display:block!important;
     text-align:right;
@@ -1020,7 +1026,7 @@ function BillDetailTable({ lines, sub, tax, total, note, pageHeader }){
     <table style={{width:'100%',borderCollapse:'collapse',border:'2px solid #000',borderTop:'none',marginBottom:8,fontSize:19}}>
       <thead>
         {pageHeader&&(
-          <tr style={{background:'#f0f4fa'}}>
+          <tr className="bill-page-header-row" style={{background:'#f0f4fa'}}>
             <td colSpan={5} style={{border:'1px solid #888',padding:'5px 13px',fontSize:13,fontWeight:700,color:'#0f2a5c',letterSpacing:'0.04em'}}>
               {pageHeader}
             </td>
