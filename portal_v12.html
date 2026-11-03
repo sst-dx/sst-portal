@@ -1015,10 +1015,17 @@ function BillSpecTable({ rows }){
   );
 }
 
-function BillDetailTable({ lines, sub, tax, total, note }){
+function BillDetailTable({ lines, sub, tax, total, note, pageHeader }){
   return(
     <table style={{width:'100%',borderCollapse:'collapse',border:'2px solid #000',borderTop:'none',marginBottom:8,fontSize:19}}>
       <thead>
+        {pageHeader&&(
+          <tr style={{background:'#f0f4fa'}}>
+            <td colSpan={5} style={{border:'1px solid #888',padding:'5px 13px',fontSize:13,fontWeight:700,color:'#0f2a5c',letterSpacing:'0.04em'}}>
+              {pageHeader}
+            </td>
+          </tr>
+        )}
         <tr style={{background:'#fff'}}>
           {[['項目',null],['内容',null],['数量','right'],['単価','right'],['金額','right']].map(([h,a],i)=>(
             <th key={i} style={{border:'1px solid #888',padding:'9px 13px',fontWeight:900,textAlign:a||'left',width:i===0?'18%':i===1?'36%':i===2?'10%':i===3?'18%':'18%'}}>{h}</th>
@@ -1557,7 +1564,7 @@ function LeasePrintContent({ data }){
         </div>
       )}
       <BillSectionTitle>内容</BillSectionTitle>
-      <BillDetailTable lines={lines} sub={subAfterAdj} tax={taxCalc} total={totalCalc} note={note}/>
+      <BillDetailTable lines={lines} sub={subAfterAdj} tax={taxCalc} total={totalCalc} note={note} pageHeader={`現場名：${projectName||'リース商品お見積もり'}　宛先：${withHonorific(customerName,customerHonorific)}　日付：${quoteDate||dateStr}`}/>
       <BillFooterName/>
     </>
   );
