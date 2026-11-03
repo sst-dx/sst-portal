@@ -1110,14 +1110,14 @@ function BillFooterName(){
 
 function BillPaymentInfo(){
   const rowSt={display:'flex',gap:0,borderBottom:'1px solid #ccc',fontSize:17,lineHeight:1.9};
-  const lSt={width:110,flexShrink:0,fontWeight:700,color:'#1a2236',padding:'2px 8px 2px 0'};
+  const lSt={width:110,flexShrink:0,fontWeight:700,color:'#000',padding:'2px 8px 2px 0'};
   const rSt={flex:1,padding:'2px 0'};
   return(
-    <div style={{border:'2px solid #1a2236',borderRadius:4,overflow:'hidden'}}>
-      <div style={{background:'#1a2236',color:'#fff',padding:'7px 14px',fontSize:17,fontWeight:900,letterSpacing:'0.05em'}}>
+    <div style={{border:'2px solid #000',borderRadius:4,overflow:'hidden'}}>
+      <div style={{background:'#fff',color:'#000',padding:'7px 14px',fontSize:17,fontWeight:900,letterSpacing:'0.05em',borderBottom:'2px solid #000'}}>
         お振込先
       </div>
-      <div style={{padding:'10px 14px 8px',background:'#f8f9fc'}}>
+      <div style={{padding:'10px 14px 8px',background:'#fff'}}>
         <div style={rowSt}><div style={lSt}>琉球銀行</div><div style={rSt}>浦添支店　（普）344130</div></div>
         <div style={rowSt}><div style={lSt}>沖縄銀行</div><div style={rSt}>新都心支店　（普）1110138</div></div>
         <div style={{...rowSt,borderBottom:'none'}}><div style={lSt}>海邦銀行</div><div style={rSt}>勢理客支店　（普）0051151</div></div>
