@@ -2561,7 +2561,12 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
   let targetTotal = 0;
   if(roundingUnit>0 && preTaxTotal>0){
     targetTotal = Math.floor(preTaxTotal/roundingUnit)*roundingUnit; // 税込合計を切り捨て
-    const targetExcl = targetTotal - Math.floor(targetTotal/11); // 目標税込から税別を逆算
+    // 税別を逆算: subTotal+Math.floor(subTotal*0.1)===targetTotal となる最大のsubTotalを探す
+    // subTotal = targetTotal - Math.ceil(targetTotal/11) から始めて確認
+    let targetExcl = targetTotal - Math.ceil(targetTotal/11);
+    // 念のため検証（Math.floor(targetExcl*0.1)+targetExcl <= targetTotal を満たす最大値）
+    while(targetExcl + Math.floor(targetExcl*0.1) < targetTotal) targetExcl++;
+    if(targetExcl + Math.floor(targetExcl*0.1) > targetTotal) targetExcl--;
     roundingDiscountAmt = targetExcl - preTaxSubTotal; // マイナス値
   }
   const discountAmt = regularDiscountAmt + roundingDiscountAmt; // 増りの税別値引き総額
