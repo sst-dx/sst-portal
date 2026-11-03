@@ -137,7 +137,8 @@ input:focus,textarea:focus,select:focus{outline:none;border-color:var(--blue)!im
   }
   .bill-sheet table{page-break-inside:auto;}
   .bill-sheet tr{page-break-inside:avoid;}
-  .bill-sheet thead{display:table-header-group;}
+  .bill-sheet thead{display:table-header-group!important;}
+  .bill-sheet thead tr{page-break-inside:avoid;page-break-after:avoid;}
   .bill-sheet tbody tr{page-break-inside:avoid;}
   .print-page-footer{
     display:block!important;
