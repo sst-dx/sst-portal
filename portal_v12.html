@@ -2590,10 +2590,10 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
 
   const cartSub = cart.filter(it=>it.type!=='divider').reduce((a,it)=>a+itemTotal(it,days,setupMode),0);
   // -- 通常値引き計算 --
-  const discountValInt = discountValue ? parseInt(discountValue) : 0;
+  const discountValInt = discountValue ? Math.abs(parseInt(discountValue)) : 0;
   let regularDiscountAmt = 0; // 税別ベースの値引き額（マイナス）
   if(discountType==='amount' && discountValInt>0){
-    regularDiscountAmt = -Math.round(discountValInt/1.1); // 入力は税込値引き額
+    regularDiscountAmt = -Math.round(discountValInt/1.1); // 入力は税込値引き額（正・負どちらでも可）
   } else if(discountType==='percent' && discountValInt>0 && discountValInt<100){
     regularDiscountAmt = -Math.floor(cartSub * discountValInt / 100);
   }
@@ -3020,7 +3020,7 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
                   <div>
                     <div style={{display:'flex',alignItems:'center',gap:6}}>
                       <input type="number" value={discountValue} onChange={e=>setDiscountValue(e.target.value)}
-                        placeholder="税込値引き額（例：5000）"
+                        placeholder="税込値引き額（例：5000 または -5000）"
                         style={{...inp,fontSize:12,padding:'5px 8px',flex:1}}/>
                       <span style={{fontSize:11,color:'#c0392b',fontWeight:700,whiteSpace:'nowrap'}}>円（税込）</span>
                     </div>
