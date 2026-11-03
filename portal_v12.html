@@ -1142,7 +1142,7 @@ function LoadingSheetModal({onClose,cart,customerName,customerHonorific,projectN
   const handlePrint=()=>{
     const el=printRef.current;if(!el)return;
     const w=window.open('','','width=800,height=900');
-    w.document.write('<!DOCTYPE html><html><head><meta charset='utf-8'><title>積み込み指示書</title><style>body{font-family:sans-serif;padding:20px}h1{font-size:20px;font-weight:700;margin:0 0 12px;border-bottom:2px solid #1e3a5f;padding-bottom:8px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:8px 12px}th{background:#f5f5f5;font-weight:700}td:last-child{text-align:right;font-weight:700}.info-table{margin-bottom:16px;font-size:13px}.info-table td{border:none;padding:4px 8px}.info-table td:first-child{font-weight:700;color:#555;width:90px}.note{color:#666;font-size:12px;margin:0 0 12px}@media print{button{display:none}}</style></head><body>'+el.innerHTML+'</body></html>');
+    w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>穌み込み指示書</title><style>body{font-family:sans-serif;padding:20px}h1{font-size:20px;font-weight:700;margin:0 0 12px;border-bottom:2px solid #1e3a5f;padding-bottom:8px}table{width:100%;border-collapse:collapse}th,td{border:1px solid #ccc;padding:8px 12px}th{background:#f5f5f5;font-weight:700}td:last-child{text-align:right;font-weight:700}.info-table{margin-bottom:16px;font-size:13px}.info-table td{border:none;padding:4px 8px}.info-table td:first-child{font-weight:700;color:#555;width:90px}.note{color:#666;font-size:12px;margin:0 0 12px}@media print{button{display:none}}</style></head><body>'+el.innerHTML+'</body></html>');
     w.document.close();w.focus();setTimeout(()=>{w.print();},300);
   };
   const infoRowStyle={padding:'3px 0',fontSize:13,display:'flex',gap:8};
