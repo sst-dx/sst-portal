@@ -1047,8 +1047,8 @@ function BillDetailTable({ lines, sub, tax, total, note, pageHeader }){
               <td colSpan={5} style={{border:'1px solid #888',padding:'8px 13px',fontWeight:900,color:'#0f2a5c'}}>{ln.item}</td>
             </tr>
           ):(
-          <tr key={i} style={{background:ln.minus?'#fff5f5':ln.item==='端数調整'?'#fff5f5':'transparent'}}>
-            <td style={{border:'1px solid #888',padding:'9px 13px',fontWeight:ln.rowType==='child'?700:900,paddingLeft:ln.rowType==='child'?'26px':'13px'}}>{ln.item}</td>
+          <tr key={i} style={{background:ln.minus?'#fff5f5':ln.isSetupRow?'#f7f9ff':ln.item==='端数調整'?'#fff5f5':'transparent'}}>
+            <td style={{border:'1px solid #888',padding:ln.isSetupRow?'6px 13px 6px 26px':'9px 13px',fontWeight:ln.rowType==='child'?700:ln.isSetupRow?500:900,paddingLeft:ln.rowType==='child'?'26px':ln.isSetupRow?'26px':'13px',color:ln.isSetupRow?'#444':'inherit',fontSize:ln.isSetupRow?16:undefined}}>{ln.item}</td>
             <td style={{border:'1px solid #888',padding:'9px 13px',color:'#000',fontSize:17}}>{ln.detail}</td>
             <td style={{border:'1px solid #888',padding:'9px 13px',textAlign:'right'}}>{ln.qty}</td>
             <td style={{border:'1px solid #888',padding:'9px 13px',textAlign:'right'}}>{ln.unit}</td>
@@ -1500,7 +1500,7 @@ function LeasePrintContent({ data }){
   const {customerName,customerHonorific,projectName,dateStr,staffLastName,items,days,setupMode,docType,
     cartSub,tax,total,quoteDate,note,discountAmt,regularDiscountAmt,roundingDiscountAmt,
     setupDateFrom,setupDateTo,eventDateFrom,eventDateTo,teardownDateFrom,teardownDateTo,
-    setupUndef,eventUndef,teardownUndef,setupSplit}=data;
+    setupUndef,eventUndef,teardownUndef,setupDisplayMode}=data;
   const fmtDateRange=(from,to)=>{
     if(!from) return null;
     const f=d=>d.replace(/-/g,'/');
@@ -1518,29 +1518,47 @@ function LeasePrintContent({ data }){
     : (!eventUndef && eventDateFrom ? 1 : null);
   const displayDays = eventDays || days;
 
-  // 設営撤去費まとめ表示モードかどうか
-  const doSplit = setupSplit && setupMode !== 'none';
+  // 設営撤去費の表示モード（setupModeがnoneなら常にcombined扱い）
+  const dispMode = setupMode === 'none' ? 'combined' : (setupDisplayMode || 'combined');
+  const setupLabel = {both:'設営・撤去費',setup:'設営費',teardown:'撤去費'}[setupMode]||'設営撤去費';
 
-  const lines = items.map(item=>{
+  const lines = items.flatMap(item=>{
     // ブース区切り
-    if(item.type==='divider') return {rowType:'header', item:item.label||'ブース'};
+    if(item.type==='divider') return [{rowType:'header', item:item.label||'ブース'}];
     // カスタム商品はitem自体の値を、通常商品はPRICE_TABLEを参照
     const p = item.custom ? item : PRICE_TABLE[item.name];
-    if(!p) return null;
+    if(!p) return [];
     const base=p.base*item.qty;
     const setup=item.custom ? 0 : calcItemSetup(p,item.qty,setupMode);
     const ext=calcExt(p,displayDays)*item.qty;
-    // doSplitモードでは物品費のみ（setup抜き）で金額計算
-    const tot = doSplit ? Math.floor(base+ext) : Math.floor(base+setup+ext);
+
     let detail=item.custom ? (item.spec||'') : p.spec;
-    // doSplitモードでは設営撤去費込みの表記を省く
-    if(!item.custom && setupMode!=='none' && !doSplit) detail+=` ／ ${setupShort[setupMode]}`;
     if(displayDays>1) detail+=` ／ 延長${displayDays-1}日`;
-    return {item:item.name, detail, qty:`${item.qty}`, unit:`${p.base.toLocaleString()}円`, amount:`${tot.toLocaleString()}円`};
+
+    if(dispMode==='perItem' && setup > 0){
+      // 物品ごと行分割：物品行（setup抜き）＋設営撤去費行
+      const itemAmt = Math.floor(base+ext);
+      const itemRow = {item:item.name, detail, qty:`${item.qty}`, unit:`${p.base.toLocaleString()}円`, amount:`${itemAmt.toLocaleString()}円`};
+      const setupRow = {item:`${item.name} ${setupLabel}`, detail:'', qty:'1式', unit:`${setup.toLocaleString()}円`, amount:`${setup.toLocaleString()}円`, isSetupRow:true};
+      return [itemRow, setupRow];
+    } else if(dispMode==='perItem'){
+      // setup=0の物品は物品行のみ
+      const tot = Math.floor(base+ext);
+      return [{item:item.name, detail, qty:`${item.qty}`, unit:`${p.base.toLocaleString()}円`, amount:`${tot.toLocaleString()}円`}];
+    } else if(dispMode==='total'){
+      // 末尾一式まとめ：物品費のみ
+      const tot = Math.floor(base+ext);
+      return [{item:item.name, detail, qty:`${item.qty}`, unit:`${p.base.toLocaleString()}円`, amount:`${tot.toLocaleString()}円`}];
+    } else {
+      // combined（デフォルト）：設営撤去費込みで1行
+      const tot=Math.floor(base+setup+ext);
+      if(!item.custom && setupMode!=='none') detail+=` ／ ${setupShort[setupMode]}`;
+      return [{item:item.name, detail, qty:`${item.qty}`, unit:`${p.base.toLocaleString()}円`, amount:`${tot.toLocaleString()}円`}];
+    }
   }).filter(Boolean);
 
-  // doSplitモードのとき設営撤去費合計を計算して明細末尾に追加
-  if(doSplit){
+  // totalモードのとき設営撤去費合計を末尾に追加
+  if(dispMode==='total'){
     const setupTotal = items.reduce((acc,item)=>{
       if(item.type==='divider' || item.custom) return acc;
       const p = PRICE_TABLE[item.name];
@@ -1548,7 +1566,6 @@ function LeasePrintContent({ data }){
       return acc + calcItemSetup(p,item.qty,setupMode);
     }, 0);
     if(setupTotal > 0){
-      const setupLabel = {both:'設営・撤去費',setup:'設営費',teardown:'撤去費'}[setupMode]||'設営撤去費';
       lines.push({item:`${setupLabel} 一式`, detail:'', qty:'1式', unit:`${setupTotal.toLocaleString()}円`, amount:`${setupTotal.toLocaleString()}円`});
     }
   }
@@ -2555,7 +2572,7 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
   const [eventUndef,setEventUndef]=useState(()=>editDocData?.event_undef||false);
   const [teardownUndef,setTeardownUndef]=useState(()=>editDocData?.teardown_undef||false);
   const [showPdf,setShowPdf]=useState(false);
-  const [setupSplit,setSetupSplit]=useState(false);
+  const [setupDisplayMode,setSetupDisplayMode]=useState('combined'); // 'combined'|'perItem'|'total'
   const [showLoadingSheet,setShowLoadingSheet]=useState(false);
   const [docType,setDocType]=useState('estimate');
   // カスタム商品入力フォーム
@@ -2694,16 +2711,23 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
           onToggleDoc={()=>setDocType(t=>t==='estimate'?'invoice':'estimate')}
           extraControls={setupMode!=='none'?(
             <div style={{background:'rgba(255,255,255,0.08)',borderRadius:9,padding:'12px 12px'}}>
-              <div style={{fontSize:10,color:'rgba(255,255,255,0.6)',marginBottom:8,fontWeight:600}}>設営撤去費の表示</div>
-              <button onClick={()=>setSetupSplit(s=>!s)} style={{
-                width:'100%',background:setupSplit?'#1d4ed8':'rgba(255,255,255,0.15)',
-                color:'#fff',border:'none',borderRadius:7,
-                padding:'9px 10px',fontSize:11,fontWeight:700,cursor:'pointer',
-                display:'flex',alignItems:'center',gap:6,
-              }}>
-                <span style={{fontSize:14}}>{setupSplit?'✅':'☐'}</span>
-                <span>{setupSplit?'一式まとめ表示':'物品ごと込み表示'}</span>
-              </button>
+              <div style={{fontSize:10,color:'rgba(255,255,255,0.6)',marginBottom:8,fontWeight:600}}>設営撤去費の表示方法</div>
+              {[
+                {mode:'combined', label:'物品に込み表示', icon:'📦'},
+                {mode:'perItem',  label:'物品ごと行分割', icon:'📋'},
+                {mode:'total',    label:'末尾に一式まとめ', icon:'📊'},
+              ].map(({mode,label,icon})=>(
+                <button key={mode} onClick={()=>setSetupDisplayMode(mode)} style={{
+                  width:'100%',marginBottom:4,
+                  background:setupDisplayMode===mode?'#1d4ed8':'rgba(255,255,255,0.1)',
+                  color:'#fff',border:setupDisplayMode===mode?'1.5px solid #60a5fa':'1px solid rgba(255,255,255,0.15)',
+                  borderRadius:7,padding:'8px 10px',fontSize:11,fontWeight:700,cursor:'pointer',
+                  display:'flex',alignItems:'center',gap:6,textAlign:'left',
+                }}>
+                  <span style={{fontSize:13}}>{icon}</span>
+                  <span>{label}</span>
+                </button>
+              ))}
             </div>
           ):null}
           onIssue={async (pdfBlob)=>{
@@ -2762,7 +2786,7 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
             calcExt, calcItemSetup, itemTotal, docType,
             setupDateFrom, setupDateTo, eventDateFrom, eventDateTo, teardownDateFrom, teardownDateTo,
             setupUndef, eventUndef, teardownUndef,
-            setupSplit,
+            setupDisplayMode,
           }}/>
         </PrintModal>
       )}
