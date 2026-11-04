@@ -1216,7 +1216,7 @@ function LoadingSheetModal({onClose,cart,customerName,customerHonorific,projectN
     </div>
   );
 }
-function PrintModal({onClose, children, docType, onToggleDoc, onIssue}){
+function PrintModal({onClose, children, docType, onToggleDoc, onIssue, extraControls}){
   const [printScale, setPrintScale] = React.useState(100);
   const [issued, setIssued] = React.useState(false);
   const [issuing, setIssuing] = React.useState(false);
@@ -1370,6 +1370,13 @@ function PrintModal({onClose, children, docType, onToggleDoc, onIssue}){
           </div>
         </div>
 
+        {extraControls && (
+          <>
+            <div style={{height:1,background:'rgba(255,255,255,0.12)',margin:'4px 0'}}/>
+            {extraControls}
+          </>
+        )}
+
         <div style={{flex:1}}/>
 
         <div style={{fontSize:9,color:'rgba(255,255,255,0.35)',lineHeight:1.6}}>
@@ -1493,7 +1500,7 @@ function LeasePrintContent({ data }){
   const {customerName,customerHonorific,projectName,dateStr,staffLastName,items,days,setupMode,docType,
     cartSub,tax,total,quoteDate,note,discountAmt,regularDiscountAmt,roundingDiscountAmt,
     setupDateFrom,setupDateTo,eventDateFrom,eventDateTo,teardownDateFrom,teardownDateTo,
-    setupUndef,eventUndef,teardownUndef}=data;
+    setupUndef,eventUndef,teardownUndef,setupSplit}=data;
   const fmtDateRange=(from,to)=>{
     if(!from) return null;
     const f=d=>d.replace(/-/g,'/');
@@ -1511,6 +1518,9 @@ function LeasePrintContent({ data }){
     : (!eventUndef && eventDateFrom ? 1 : null);
   const displayDays = eventDays || days;
 
+  // 設営撤去費まとめ表示モードかどうか
+  const doSplit = setupSplit && setupMode !== 'none';
+
   const lines = items.map(item=>{
     // ブース区切り
     if(item.type==='divider') return {rowType:'header', item:item.label||'ブース'};
@@ -1520,12 +1530,28 @@ function LeasePrintContent({ data }){
     const base=p.base*item.qty;
     const setup=item.custom ? 0 : calcItemSetup(p,item.qty,setupMode);
     const ext=calcExt(p,displayDays)*item.qty;
-    const tot=Math.floor(base+setup+ext);
+    // doSplitモードでは物品費のみ（setup抜き）で金額計算
+    const tot = doSplit ? Math.floor(base+ext) : Math.floor(base+setup+ext);
     let detail=item.custom ? (item.spec||'') : p.spec;
-    if(!item.custom && setupMode!=='none') detail+=` ／ ${setupShort[setupMode]}`;
+    // doSplitモードでは設営撤去費込みの表記を省く
+    if(!item.custom && setupMode!=='none' && !doSplit) detail+=` ／ ${setupShort[setupMode]}`;
     if(displayDays>1) detail+=` ／ 延長${displayDays-1}日`;
     return {item:item.name, detail, qty:`${item.qty}`, unit:`${p.base.toLocaleString()}円`, amount:`${tot.toLocaleString()}円`};
   }).filter(Boolean);
+
+  // doSplitモードのとき設営撤去費合計を計算して明細末尾に追加
+  if(doSplit){
+    const setupTotal = items.reduce((acc,item)=>{
+      if(item.type==='divider' || item.custom) return acc;
+      const p = PRICE_TABLE[item.name];
+      if(!p) return acc;
+      return acc + calcItemSetup(p,item.qty,setupMode);
+    }, 0);
+    if(setupTotal > 0){
+      const setupLabel = {both:'設営・撤去費',setup:'設営費',teardown:'撤去費'}[setupMode]||'設営撤去費';
+      lines.push({item:`${setupLabel} 一式`, detail:'', qty:'1式', unit:`${setupTotal.toLocaleString()}円`, amount:`${setupTotal.toLocaleString()}円`});
+    }
+  }
 
   // 値引き行
   if(regularDiscountAmt && regularDiscountAmt<0){
@@ -2529,6 +2555,7 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
   const [eventUndef,setEventUndef]=useState(()=>editDocData?.event_undef||false);
   const [teardownUndef,setTeardownUndef]=useState(()=>editDocData?.teardown_undef||false);
   const [showPdf,setShowPdf]=useState(false);
+  const [setupSplit,setSetupSplit]=useState(false);
   const [showLoadingSheet,setShowLoadingSheet]=useState(false);
   const [docType,setDocType]=useState('estimate');
   // カスタム商品入力フォーム
@@ -2665,6 +2692,20 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
           onClose={()=>setShowPdf(false)}
           docType={docType}
           onToggleDoc={()=>setDocType(t=>t==='estimate'?'invoice':'estimate')}
+          extraControls={setupMode!=='none'?(
+            <div style={{background:'rgba(255,255,255,0.08)',borderRadius:9,padding:'12px 12px'}}>
+              <div style={{fontSize:10,color:'rgba(255,255,255,0.6)',marginBottom:8,fontWeight:600}}>設営撤去費の表示</div>
+              <button onClick={()=>setSetupSplit(s=>!s)} style={{
+                width:'100%',background:setupSplit?'#1d4ed8':'rgba(255,255,255,0.15)',
+                color:'#fff',border:'none',borderRadius:7,
+                padding:'9px 10px',fontSize:11,fontWeight:700,cursor:'pointer',
+                display:'flex',alignItems:'center',gap:6,
+              }}>
+                <span style={{fontSize:14}}>{setupSplit?'✅':'☐'}</span>
+                <span>{setupSplit?'一式まとめ表示':'物品ごと込み表示'}</span>
+              </button>
+            </div>
+          ):null}
           onIssue={async (pdfBlob)=>{
             const {data:{user:u}} = await supabase.auth.getUser();
             // まずドキュメント情報をInsert
@@ -2721,6 +2762,7 @@ function QuotePage({addActivity, user, editDocData, onEditComplete}){
             calcExt, calcItemSetup, itemTotal, docType,
             setupDateFrom, setupDateTo, eventDateFrom, eventDateTo, teardownDateFrom, teardownDateTo,
             setupUndef, eventUndef, teardownUndef,
+            setupSplit,
           }}/>
         </PrintModal>
       )}
