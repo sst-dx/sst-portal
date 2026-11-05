@@ -1775,6 +1775,7 @@ function NavBar({page,setPage,user,onLogout}){
     {key:'pawlo',label:'パウロテント販売',icon:Icon.pawlo},
     {key:'iron',label:'鉄工材料見積もり',icon:Icon.iron},
     {key:'free',label:'自由見積もり',icon:Icon.quote},
+    {key:'workorder',label:'製作指示書',icon:'📋'},
   ];
   const [menuOpen,setMenuOpen]=React.useState(false);
   const [tentOpen,setTentOpen]=React.useState(false);
@@ -5901,6 +5902,345 @@ function MyPage({user}){
   );
 }
 
+// =====================================================
+// 製作指示書
+// =====================================================
+const WO_STAFF = ['澤岻 真由美','大城 和弥','與世田 朝助','宇良 正幸','玉城 幸年','知念'];
+const WO_PRIORITY = [{val:'high',label:'高',color:'#c0392b',bg:'#fdecea'},{val:'mid',label:'中',color:'#b45309',bg:'#fef3e2'},{val:'low',label:'低',color:'#0e8f5a',bg:'#e8f7f0'}];
+
+function fmtWoDate(d){
+  if(!d) return '';
+  const dt=new Date(d+'T00:00:00');
+  const days=['日','月','火','水','木','金','土'];
+  return `${dt.getMonth()+1}/${dt.getDate()}（${days[dt.getDay()]}）`;
+}
+function todayStr(){
+  const d=new Date();
+  const y=String(d.getFullYear()).slice(2);
+  const m=String(d.getMonth()+1).padStart(2,'0');
+  const dd=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}${dd}`;
+}
+
+// 製作指示書 印刷プレビューコンポーネント
+function WorkOrderPrint({wo}){
+  const pri = WO_PRIORITY.find(p=>p.val===wo.priority)||WO_PRIORITY[1];
+  return(
+    <div style={{width:794,minHeight:560,fontFamily:'Noto Sans JP,sans-serif',background:'#fff',border:'2px solid #333',position:'relative',padding:0}}>
+      {/* ヘッダー */}
+      <div style={{background:C.navy,color:'#fff',padding:'10px 18px 8px',display:'flex',alignItems:'center',justifyContent:'space-between'}}>
+        <div>
+          <div style={{fontSize:11,opacity:0.7,marginBottom:2}}>製作指示書　No.{wo.number}</div>
+          <div style={{fontSize:26,fontWeight:900,letterSpacing:1}}>{wo.title}</div>
+        </div>
+        <div style={{textAlign:'right',display:'flex',flexDirection:'column',alignItems:'flex-end',gap:4}}>
+          <div style={{display:'flex',alignItems:'center',gap:8}}>
+            <div style={{fontSize:13,fontWeight:700,border:'2px solid rgba(255,255,255,0.6)',borderRadius:5,padding:'3px 10px'}}>優先度</div>
+            <div style={{background:pri.bg,color:pri.color,fontWeight:900,fontSize:20,borderRadius:5,padding:'3px 14px',border:`2px solid ${pri.color}`}}>{pri.label}</div>
+          </div>
+          {wo.amount>0&&<div style={{background:'#fff',color:C.navy,fontWeight:900,fontSize:15,borderRadius:5,padding:'3px 14px',border:`1.5px solid ${C.border}`}}>¥{Number(wo.amount).toLocaleString()}</div>}
+          <div style={{fontSize:12,opacity:0.8}}>担当：{wo.staff}</div>
+        </div>
+      </div>
+      {/* ボディ */}
+      <div style={{display:'flex',minHeight:460}}>
+        {/* 左：製作仕様 */}
+        <div style={{width:300,borderRight:'1.5px solid #aaa',padding:'14px 18px',display:'flex',flexDirection:'column'}}>
+          <div style={{fontSize:12,fontWeight:700,color:C.textSub,textAlign:'center',borderBottom:'1px solid #ddd',paddingBottom:6,marginBottom:12}}>製作仕様</div>
+          <div style={{fontSize:14,lineHeight:2.0,flex:1,whiteSpace:'pre-wrap'}}>{wo.spec}</div>
+          {wo.memo&&<>
+            <div style={{borderTop:'1px solid #ccc',marginTop:12,paddingTop:8,fontSize:11,color:C.textMuted,marginBottom:4}}>── メモ ──</div>
+            <div style={{fontSize:13,lineHeight:1.8,color:wo.memo_red?'#c0392b':'#1a2236',fontWeight:wo.memo_red?700:400,whiteSpace:'pre-wrap'}}>{wo.memo}</div>
+          </>}
+        </div>
+        {/* 右：日程・金額 */}
+        <div style={{flex:1,padding:'18px 20px',display:'flex',flexDirection:'column',gap:16}}>
+          {wo.install_date&&<div style={{textAlign:'center'}}>
+            <div style={{display:'inline-block',border:'2px solid #c0392b',borderRadius:10,padding:'6px 20px 10px',background:'#fdecea',minWidth:280}}>
+              <div style={{fontSize:11,color:'#c0392b',fontWeight:700,marginBottom:4}}>取付日</div>
+              <div style={{fontSize:42,fontWeight:900,color:'#c0392b',letterSpacing:1}}>{fmtWoDate(wo.install_date)}</div>
+            </div>
+          </div>}
+          {wo.due_date&&!wo.install_date&&<div style={{textAlign:'center'}}>
+            <div style={{display:'inline-block',border:'2px solid #c0392b',borderRadius:10,padding:'6px 20px 10px',background:'#fdecea',minWidth:280}}>
+              <div style={{fontSize:11,color:'#c0392b',fontWeight:700,marginBottom:4}}>完成希望日</div>
+              <div style={{fontSize:42,fontWeight:900,color:'#c0392b',letterSpacing:1}}>{fmtWoDate(wo.due_date)}迄</div>
+            </div>
+          </div>}
+          <div style={{display:'flex',gap:12,alignItems:'center'}}>
+            <div style={{flex:1,border:'1.5px solid #aaa',borderRadius:8,padding:'8px 14px'}}>
+              <div style={{fontSize:10,color:C.textMuted,marginBottom:4}}>着手日</div>
+              <div style={{fontSize:16,fontWeight:700}}>{wo.start_date?fmtWoDate(wo.start_date):' '}</div>
+            </div>
+            <div style={{fontSize:18,color:C.textMuted}}>〜</div>
+            <div style={{flex:1,border:'1.5px solid #aaa',borderRadius:8,padding:'8px 14px'}}>
+              <div style={{fontSize:10,color:C.textMuted,marginBottom:4}}>完成日</div>
+              <div style={{fontSize:16,fontWeight:700}}>{wo.due_date?fmtWoDate(wo.due_date):' '}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div style={{position:'absolute',bottom:8,right:14,fontSize:11,color:C.textMuted}}>No.{wo.number}</div>
+    </div>
+  );
+}
+// 製作指示書 フォームモーダル
+function WorkOrderForm({wo, onSave, onClose}){
+  const isEdit=!!wo?.id;
+  const [title,setTitle]=useState(wo?.title||'');
+  const [spec,setSpec]=useState(wo?.spec||'');
+  const [memo,setMemo]=useState(wo?.memo||'');
+  const [memoRed,setMemoRed]=useState(wo?.memo_red||false);
+  const [staff,setStaff]=useState(wo?.staff||WO_STAFF[0]);
+  const [priority,setPriority]=useState(wo?.priority||'mid');
+  const [installDate,setInstallDate]=useState(wo?.install_date||'');
+  const [dueDate,setDueDate]=useState(wo?.due_date||'');
+  const [startDate,setStartDate]=useState(wo?.start_date||'');
+  const [amount,setAmount]=useState(wo?.amount||'');
+  const [saving,setSaving]=useState(false);
+
+  const handleSave=async()=>{
+    if(!title.trim()){alert('件名を入力してください');return;}
+    setSaving(true);
+    const payload={
+      title:title.trim(), spec, memo, memo_red:memoRed,
+      staff, priority,
+      install_date:installDate||null,
+      due_date:dueDate||null,
+      start_date:startDate||null,
+      amount:parseInt(String(amount).replace(/[^0-9]/g,''))||0,
+      updated_at:new Date().toISOString(),
+    };
+    let result;
+    if(isEdit){
+      result=await supabase.from('work_orders').update(payload).eq('id',wo.id).select().single();
+    } else {
+      const prefix=todayStr();
+      const {data:existing}=await supabase.from('work_orders').select('number').like('number',prefix+'-%').order('number',{ascending:false}).limit(1);
+      let seq=1;
+      if(existing&&existing.length>0){
+        const last=existing[0].number;
+        const parts=last.split('-');
+        seq=(parseInt(parts[parts.length-1])||0)+1;
+      }
+      const number=`${prefix}-${String(seq).padStart(2,'0')}`;
+      result=await supabase.from('work_orders').insert({...payload,number,created_at:new Date().toISOString()}).select().single();
+    }
+    setSaving(false);
+    if(result.error){alert('保存エラー: '+result.error.message);return;}
+    onSave(result.data);
+  };
+
+  const inStyle={width:'100%',border:'1.5px solid '+C.border,borderRadius:7,padding:'8px 10px',fontSize:13,fontFamily:'inherit',outline:'none',boxSizing:'border-box'};
+  const labelStyle={fontSize:11,fontWeight:700,color:C.textSub,marginBottom:4,display:'block'};
+
+  return(
+    <div style={{position:'fixed',inset:0,background:'rgba(9,29,66,0.55)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div style={{background:'#fff',borderRadius:14,width:'100%',maxWidth:620,maxHeight:'90vh',overflow:'auto',boxShadow:'0 20px 60px rgba(9,29,66,0.3)'}}>
+        <div style={{background:C.navy,color:'#fff',padding:'16px 20px',borderRadius:'14px 14px 0 0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <div style={{fontWeight:800,fontSize:16}}>{isEdit?'製作指示書を編集':'製作指示書を作成'}</div>
+          <button onClick={onClose} style={{background:'none',border:'none',color:'#fff',fontSize:20,cursor:'pointer',lineHeight:1}}>×</button>
+        </div>
+        <div style={{padding:'20px 24px',display:'flex',flexDirection:'column',gap:16}}>
+          <div>
+            <label style={labelStyle}>件名 *</label>
+            <input value={title} onChange={e=>setTitle(e.target.value)} placeholder="例：ハイアット瀬良垣 日除けテント" style={inStyle}/>
+          </div>
+          <div style={{display:'flex',gap:12}}>
+            <div style={{flex:1}}>
+              <label style={labelStyle}>担当者</label>
+              <select value={staff} onChange={e=>setStaff(e.target.value)} style={inStyle}>
+                {WO_STAFF.map(s=><option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div style={{flex:1}}>
+              <label style={labelStyle}>優先度</label>
+              <div style={{display:'flex',gap:6}}>
+                {WO_PRIORITY.map(p=>(
+                  <button key={p.val} onClick={()=>setPriority(p.val)} style={{
+                    flex:1,padding:'8px 0',borderRadius:7,fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'inherit',
+                    background:priority===p.val?p.bg:'#f8fafd',
+                    color:priority===p.val?p.color:C.textMuted,
+                    border:priority===p.val?`2px solid ${p.color}`:'1.5px solid '+C.border,
+                  }}>{p.label}</button>
+                ))}
+              </div>
+            </div>
+          </div>
+          <div style={{display:'flex',gap:12}}>
+            <div style={{flex:1}}>
+              <label style={labelStyle}>取付日</label>
+              <input type="date" value={installDate} onChange={e=>setInstallDate(e.target.value)} style={inStyle}/>
+            </div>
+            <div style={{flex:1}}>
+              <label style={labelStyle}>完成希望日</label>
+              <input type="date" value={dueDate} onChange={e=>setDueDate(e.target.value)} style={inStyle}/>
+            </div>
+          </div>
+          <div style={{display:'flex',gap:12}}>
+            <div style={{flex:1}}>
+              <label style={labelStyle}>着手日</label>
+              <input type="date" value={startDate} onChange={e=>setStartDate(e.target.value)} style={inStyle}/>
+            </div>
+            <div style={{flex:1}}>
+              <label style={labelStyle}>金額（税抜）</label>
+              <input type="number" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="160000" style={inStyle}/>
+            </div>
+          </div>
+          <div>
+            <label style={labelStyle}>製作仕様</label>
+            <textarea value={spec} onChange={e=>setSpec(e.target.value)} rows={4} placeholder="生地:マース&#10;色:オレンジ&#10;寸法:W3000×D3000" style={{...inStyle,resize:'vertical'}}/>
+          </div>
+          <div>
+            <div style={{display:'flex',alignItems:'center',gap:10,marginBottom:4}}>
+              <label style={{...labelStyle,margin:0}}>メモ</label>
+              <button onClick={()=>setMemoRed(r=>!r)} style={{
+                fontSize:11,fontWeight:700,padding:'2px 8px',borderRadius:5,cursor:'pointer',fontFamily:'inherit',
+                background:memoRed?'#fdecea':'#f8fafd',color:memoRed?'#c0392b':C.textMuted,
+                border:memoRed?'1.5px solid #c0392b':'1.5px solid '+C.border,
+              }}>🔴 赤文字{memoRed?'ON':'OFF'}</button>
+            </div>
+            <textarea value={memo} onChange={e=>setMemo(e.target.value)} rows={2} placeholder="要 型取り＆採寸" style={{...inStyle,resize:'vertical',color:memoRed?'#c0392b':'inherit'}}/>
+          </div>
+          <div style={{display:'flex',gap:10,justifyContent:'flex-end',paddingTop:4}}>
+            <button onClick={onClose} style={{padding:'9px 20px',border:'1.5px solid '+C.border,borderRadius:8,background:'#fff',cursor:'pointer',fontSize:13,fontWeight:600}}>キャンセル</button>
+            <button onClick={handleSave} disabled={saving} style={{padding:'9px 24px',background:C.navy,color:'#fff',border:'none',borderRadius:8,fontWeight:700,fontSize:13,cursor:'pointer',opacity:saving?0.7:1}}>
+              {saving?'保存中…':'保存'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+function WorkOrderPrintModal({wo, onClose}){
+  return(
+    <div style={{position:'fixed',inset:0,background:'rgba(9,29,66,0.55)',zIndex:1100,display:'flex',alignItems:'center',justifyContent:'center',padding:16}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+      <div style={{background:'#fff',borderRadius:14,width:'100%',maxWidth:700,maxHeight:'92vh',overflow:'auto',boxShadow:'0 20px 60px rgba(9,29,66,0.3)'}}>
+        <div style={{background:C.navy,color:'#fff',padding:'14px 20px',borderRadius:'14px 14px 0 0',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <div style={{fontWeight:700,fontSize:15}}>印刷プレビュー</div>
+          <div style={{display:'flex',gap:8}}>
+            <button onClick={()=>window.print()} style={{background:'#fff',color:C.navy,border:'none',borderRadius:7,padding:'6px 16px',fontWeight:700,fontSize:13,cursor:'pointer'}}>🖨 印刷</button>
+            <button onClick={onClose} style={{background:'none',border:'none',color:'#fff',fontSize:20,cursor:'pointer',lineHeight:1}}>×</button>
+          </div>
+        </div>
+        <div style={{padding:20}}>
+          <WorkOrderPrint wo={wo}/>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WorkOrderCard({wo, onEdit, onPrint, onDelete, onStatusChange}){
+  const pri=WO_PRIORITY.find(p=>p.val===wo.priority)||WO_PRIORITY[1];
+  return(
+    <div style={{background:'#fff',borderRadius:10,border:'1.5px solid '+C.border,padding:'12px 14px',marginBottom:10,boxShadow:'0 1px 4px rgba(9,29,66,0.06)'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',gap:6}}>
+        <div style={{flex:1}}>
+          <div style={{fontSize:10,color:C.textMuted,marginBottom:2}}>{wo.number}</div>
+          <div style={{fontWeight:700,fontSize:14,color:C.navy,marginBottom:4}}>{wo.title}</div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:4,marginBottom:6}}>
+            <span style={{fontSize:11,fontWeight:700,background:pri.bg,color:pri.color,border:`1px solid ${pri.color}`,borderRadius:5,padding:'1px 7px'}}>{pri.label}</span>
+            {wo.staff&&<span style={{fontSize:11,background:'#f0f4ff',color:C.blue,borderRadius:5,padding:'1px 7px'}}>{wo.staff}</span>}
+          </div>
+        </div>
+        <div style={{display:'flex',gap:4,flexShrink:0}}>
+          <button onClick={()=>onEdit(wo)} style={{background:'none',border:'1px solid '+C.border,borderRadius:6,padding:'4px 8px',cursor:'pointer',fontSize:12}}>✏️</button>
+          <button onClick={()=>onPrint(wo)} style={{background:'none',border:'1px solid '+C.border,borderRadius:6,padding:'4px 8px',cursor:'pointer',fontSize:12}}>🖨</button>
+          <button onClick={()=>onDelete(wo.id)} style={{background:'none',border:'1px solid #fca5a5',borderRadius:6,padding:'4px 8px',cursor:'pointer',fontSize:12,color:'#dc2626'}}>✕</button>
+        </div>
+      </div>
+      {wo.memo&&<div style={{fontSize:12,color:wo.memo_red?'#c0392b':C.textSub,background:wo.memo_red?'#fdecea':'#f8fafd',borderRadius:6,padding:'5px 8px',marginBottom:6}}>{wo.memo}</div>}
+      <div style={{fontSize:11,color:C.textMuted,display:'flex',flexWrap:'wrap',gap:8}}>
+        {wo.install_date&&<span>取付: {fmtWoDate(wo.install_date)}</span>}
+        {wo.due_date&&<span>完成: {fmtWoDate(wo.due_date)}</span>}
+        {wo.amount>0&&<span>¥{wo.amount.toLocaleString()}</span>}
+      </div>
+    </div>
+  );
+}
+
+const WO_STAGES=[
+  {key:'backlog',label:'受付',color:C.textMuted},
+  {key:'in_progress',label:'製作中',color:C.blue},
+  {key:'done',label:'完成',color:C.green},
+];
+
+function WorkOrderPage(){
+  const [orders,setOrders]=useState([]);
+  const [loading,setLoading]=useState(true);
+  const [showForm,setShowForm]=useState(false);
+  const [editWo,setEditWo]=useState(null);
+  const [printWo,setPrintWo]=useState(null);
+
+  const loadOrders=async()=>{
+    setLoading(true);
+    const {data,error}=await supabase.from('work_orders').select('*').order('created_at',{ascending:false});
+    if(!error)setOrders(data||[]);
+    setLoading(false);
+  };
+
+  useEffect(()=>{loadOrders();},[]);
+
+  const handleSave=(saved)=>{
+    setOrders(prev=>{
+      const idx=prev.findIndex(o=>o.id===saved.id);
+      if(idx>=0){const n=[...prev];n[idx]=saved;return n;}
+      return [saved,...prev];
+    });
+    setShowForm(false);setEditWo(null);
+  };
+
+  const handleDelete=async(id)=>{
+    if(!window.confirm('削除しますか？'))return;
+    await supabase.from('work_orders').delete().eq('id',id);
+    setOrders(prev=>prev.filter(o=>o.id!==id));
+  };
+
+  const handleStatusChange=async(id,newStage)=>{
+    await supabase.from('work_orders').update({stage:newStage,updated_at:new Date().toISOString()}).eq('id',id);
+    setOrders(prev=>prev.map(o=>o.id===id?{...o,stage:newStage}:o));
+  };
+
+  return(
+    <div style={{padding:'0 0 32px 0'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:20,flexWrap:'wrap',gap:10}}>
+        <div style={{fontWeight:800,fontSize:22,color:C.navy}}>📋 製作指示書</div>
+        <button onClick={()=>{setEditWo(null);setShowForm(true);}} style={{background:C.navy,color:'#fff',border:'none',borderRadius:9,padding:'10px 20px',fontWeight:700,fontSize:14,cursor:'pointer'}}>＋ 新規作成</button>
+      </div>
+      {loading?<div style={{textAlign:'center',color:C.textMuted,padding:40}}>読み込み中…</div>:(
+        <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16}}>
+          {WO_STAGES.map(stage=>(
+            <div key={stage.key} style={{background:'#f8fafd',borderRadius:12,padding:'14px 12px',border:'1.5px solid '+C.border}}>
+              <div style={{fontWeight:800,fontSize:14,color:stage.color,marginBottom:12,borderBottom:'2px solid '+stage.color,paddingBottom:8}}>
+                {stage.label}
+                <span style={{fontWeight:400,fontSize:12,color:C.textMuted,marginLeft:8}}>({orders.filter(o=>o.stage===stage.key).length})</span>
+              </div>
+              {orders.filter(o=>o.stage===stage.key).map(wo=>(
+                <div key={wo.id}>
+                  <WorkOrderCard wo={wo} onEdit={w=>{setEditWo(w);setShowForm(true);}} onPrint={setPrintWo} onDelete={handleDelete}
+                    onStatusChange={handleStatusChange}/>
+                  <div style={{display:'flex',gap:4,marginBottom:8,flexWrap:'wrap'}}>
+                    {WO_STAGES.filter(s=>s.key!==stage.key).map(s=>(
+                      <button key={s.key} onClick={()=>handleStatusChange(wo.id,s.key)} style={{
+                        fontSize:11,padding:'3px 8px',border:'1px solid '+C.border,borderRadius:5,cursor:'pointer',
+                        background:'#fff',color:C.textMuted,fontFamily:'inherit',
+                      }}>→ {s.label}</button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+      {showForm&&<WorkOrderForm wo={editWo} onSave={handleSave} onClose={()=>{setShowForm(false);setEditWo(null);}}/> }
+      {printWo&&<WorkOrderPrintModal wo={printWo} onClose={()=>setPrintWo(null)}/>}
+    </div>
+  );
+}
+
 function App(){
   const [page,setPage]=useState('dashboard');
   const [user,setUser]=useState(null);
@@ -5963,6 +6303,7 @@ function App(){
     iron:<IronPage/>,
     history:<HistoryPage onEditDoc={handleEditDoc}/>,
     mypage:<MyPage user={user}/>,
+    workorder:<WorkOrderPage user={user}/>,
   };
   return(
     <div>
