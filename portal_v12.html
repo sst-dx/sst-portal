@@ -1606,7 +1606,7 @@ function LeasePrintContent({ data }){
     </>
   );
 }
-function FabricPrintContent({ results, extraItems=[], adjust=0, customer='', subject='', honorific='御中' }){
+function FabricPrintContent({ results, extraItems=[], adjust=0, customer='', subject='', honorific='御中', billNote='' }){
   if(!results||results.length===0) return null;
   const faceNames={1:'天面',2:'前面',3:'背面',4:'左側面',5:'右側面',6:'底面'};
   const today=new Date().toISOString().slice(0,10);
@@ -1672,6 +1672,7 @@ function FabricPrintContent({ results, extraItems=[], adjust=0, customer='', sub
       <BillSpecTable rows={specRows}/>
       <BillSectionTitle>見積明細</BillSectionTitle>
       <BillDetailTable lines={allLines} sub={totalSub} tax={totalTax} total={totalAll}/>
+      {billNote&&<BillNote><div>{billNote}</div></BillNote>}
       <BillFooterName/>
     </>
   );
@@ -3768,6 +3769,7 @@ function FabricPage(){
   const [fabCustomer,setFabCustomer]=useState('');
   const [fabHonorific,setFabHonorific]=useState('御中');
   const [fabSubject,setFabSubject]=useState('');
+  const [fabBillNote,setFabBillNote]=useState('');
 
   const [step,setStep]=useState('type');
   const [estType,setEstType]=useState(null);
@@ -3882,6 +3884,7 @@ function FabricPage(){
             total_amount: cartTotal,
             date_str: new Date().toISOString().slice(0,10),
             items: cart.map(r=>({name:r.label||r.itemName||'生地', qty:r.fabricQty||1, cat:'fabric'})),
+            note: fabBillNote||'',
           }).select('id').single();
           if(error){ alert('保存エラー: '+error.message); return false; }
           if(pdfBlob && inserted?.id){
@@ -3897,7 +3900,7 @@ function FabricPage(){
           return true;
         }}
       >
-        <FabricPrintContent results={cart} extraItems={extraItems} adjust={fabAdj} customer={fabCustomer} subject={fabSubject} honorific={fabHonorific}/>
+        <FabricPrintContent results={cart} extraItems={extraItems} adjust={fabAdj} customer={fabCustomer} subject={fabSubject} honorific={fabHonorific} billNote={fabBillNote}/>
       </PrintModal>
     )}
     <div className="fade-in" style={{maxWidth:900,margin:'0 auto',padding:'24px 20px'}}>
@@ -3930,6 +3933,9 @@ function FabricPage(){
               <input value={fabCustomer} onChange={ev=>setFabCustomer(ev.target.value)} placeholder="宛名（会社名）" style={{flex:1,background:'rgba(255,255,255,0.15)',border:'1px solid rgba(255,255,255,0.3)',borderRadius:7,padding:'7px 10px',fontSize:12,color:'#fff'}}/>
               <HonorificSelect value={fabHonorific} onChange={setFabHonorific} dark={true}/>
               <input value={fabSubject} onChange={ev=>setFabSubject(ev.target.value)} placeholder="件名" style={{flex:1,background:'rgba(255,255,255,0.15)',border:'1px solid rgba(255,255,255,0.3)',borderRadius:7,padding:'7px 10px',fontSize:12,color:'#fff'}}/>
+            </div>
+            <div style={{marginTop:8}}>
+              <input value={fabBillNote} onChange={ev=>setFabBillNote(ev.target.value)} placeholder="備考・支払い条件（見積書下部に表示）" style={{width:'100%',boxSizing:'border-box',background:'rgba(255,255,255,0.15)',border:'1px solid rgba(255,255,255,0.3)',borderRadius:7,padding:'7px 10px',fontSize:12,color:'#fff'}}/>
             </div>
             <RoundingAdjust
               grandTotal={cartBaseTotal}
