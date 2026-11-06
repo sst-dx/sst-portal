@@ -1358,18 +1358,6 @@ function PrintModal({onClose, children, docType, onToggleDoc, onIssue, extraCont
 
         <div style={{height:1,background:'rgba(255,255,255,0.12)',margin:'4px 0'}}/>
 
-        {/* 文字サイズ */}
-        <div style={{background:'rgba(255,255,255,0.08)',borderRadius:9,padding:'12px 12px'}}>
-          <div style={{fontSize:10,color:'rgba(255,255,255,0.6)',marginBottom:8,fontWeight:600}}>文字サイズ</div>
-          <div style={{display:'flex',alignItems:'center',gap:8}}>
-            <button onClick={()=>setPrintScale(s=>Math.max(70,s-5))}
-              style={{background:'rgba(255,255,255,0.15)',border:'none',borderRadius:6,color:'#fff',width:28,height:28,fontSize:16,cursor:'pointer',fontWeight:700}}>－</button>
-            <span style={{color:'#fff',fontWeight:800,fontSize:14,flex:1,textAlign:'center'}}>{printScale}%</span>
-            <button onClick={()=>setPrintScale(s=>Math.min(130,s+5))}
-              style={{background:'rgba(255,255,255,0.15)',border:'none',borderRadius:6,color:'#fff',width:28,height:28,fontSize:16,cursor:'pointer',fontWeight:700}}>＋</button>
-          </div>
-        </div>
-
         {extraControls && (
           <>
             <div style={{height:1,background:'rgba(255,255,255,0.12)',margin:'4px 0'}}/>
@@ -3745,7 +3733,6 @@ function AwningPreview({r, qty, onPrint, pdfMode, setPdfMode, discount, setDisco
           </button>
         </div>
         <div style={{marginTop:8,fontSize:10,color:C.textMuted,lineHeight:1.7,textAlign:'center'}}>
-          ※ 本見積の有効期限は見積日より30日間です。<br/>
           ※ 正式見積は現地確認後に確定いたします。価格は税別で表示しています。
         </div>
       </div>
@@ -4087,7 +4074,7 @@ function FabricPage(){
   );
 }
 
-function FreePrintContent({quoteDate,subject,addressee,lines,subTotal,tax,total}){
+function FreePrintContent({quoteDate,subject,addressee,lines,subTotal,tax,total,billNote}){
   const fmtD=(d)=>{if(!d)return '';const[y,m,dd]=d.split('-');return y+'/'+m+'/'+dd;};
   const S={bd:'1px solid #888'};
   return(
@@ -4161,7 +4148,7 @@ function FreePrintContent({quoteDate,subject,addressee,lines,subTotal,tax,total}
         </tbody>
       </table>
         <BillNote>
-          <div>・本見積書の有効期限は発行日より30日間です。</div>
+          {billNote&&<div>{billNote}</div>}
           <div>・上記金額は税込価格です。</div>
         </BillNote>
         <div style={{flex:1}}/>
@@ -4179,6 +4166,7 @@ function FreePage(){
   const [lines,setLines]=useState([{id:'fl_'+Date.now(),name:'',detail:'',qty:'1',unit:'式',price:''}]);
   const [adjustAmount,setAdjustAmount]=useState('');
   const [adjustLabel,setAdjustLabel]=useState('');
+  const [billNote,setBillNote]=useState('');
   const [showPdf,setShowPdf]=useState(false);
 
   const addLine=()=>setLines(prev=>[...prev,{id:'fl_'+Date.now()+'_'+Math.floor(Math.random()*1000),name:'',detail:'',qty:'1',unit:'式',price:''}]);
@@ -4201,8 +4189,31 @@ function FreePage(){
   return (
     <div style={{maxWidth:900,margin:'0 auto',padding:'24px 20px'}}>
       {showPdf&&(
-        <PrintModal onClose={()=>setShowPdf(false)}>
-          <FreePrintContent quoteDate={today} subject={subject} addressee={withHonorific(customer,honorific)} lines={pdfLines} subTotal={subTotal} tax={tax} total={total}/>
+        <PrintModal onClose={()=>setShowPdf(false)} onIssue={async (pdfBlob)=>{
+          const {data:{user:u}} = await supabase.auth.getUser();
+          const {data:inserted, error} = await supabase.from('documents').insert({
+            doc_type: 'free_estimate',
+            created_by: u?.id||null,
+            created_by_name: u?.user_metadata?.display_name || u?.email || '不明',
+            customer_name: customer||'',
+            project_name: subject||'',
+            total_amount: total,
+            date_str: today,
+            items: pdfLines,
+            note: billNote||'',
+          }).select('id').single();
+          if(error){ alert('保存エラー: '+error.message); return false; }
+          if(pdfBlob && inserted?.id){
+            const fileName = `${inserted.id}.pdf`;
+            const { error: upErr } = await supabase.storage.from('documents').upload(fileName, pdfBlob, { contentType:'application/pdf', upsert:true });
+            if(!upErr){
+              const { data: urlData } = supabase.storage.from('documents').getPublicUrl(fileName);
+              await supabase.from('documents').update({ pdf_url: urlData?.publicUrl }).eq('id', inserted.id);
+            }
+          }
+          return true;
+        }}>
+          <FreePrintContent quoteDate={today} subject={subject} addressee={withHonorific(customer,honorific)} lines={pdfLines} subTotal={subTotal} tax={tax} total={total} billNote={billNote}/>
         </PrintModal>
       )}
       <div style={{fontSize:12,color:'var(--text-sub)',marginBottom:6}}>ホーム › 自由見積もり</div>
@@ -4214,6 +4225,7 @@ function FreePage(){
           <div style={{fontSize:11,fontWeight:700,color:C.textMuted,marginBottom:4}}>宛名（取引先）</div><div style={{display:'flex',gap:6}}><input style={{...inp,flex:1}} value={customer} onChange={ev=>setCustomer(ev.target.value)} placeholder="例：株式会社○○"/><HonorificSelect value={honorific} onChange={setHonorific}/></div>
         </div>
         <div><div style={{fontSize:11,fontWeight:700,color:C.textMuted,marginBottom:4}}>件名・備考</div><input style={inp} value={subject} onChange={ev=>setSubject(ev.target.value)} placeholder="例：○○会場 設営工事"/></div>
+        <div style={{marginTop:12}}><div style={{fontSize:11,fontWeight:700,color:C.textMuted,marginBottom:4}}>備考・支払い条件（見積書下部に表示）</div><input style={inp} value={billNote} onChange={ev=>setBillNote(ev.target.value)} placeholder="例：・お支払期限：2025年3月末日　・振込先：○○銀行"/></div>
       </div>
 
       <div style={{background:'#fff',border:'1px solid '+C.border,borderRadius:12,overflow:'hidden',marginBottom:16}}>
