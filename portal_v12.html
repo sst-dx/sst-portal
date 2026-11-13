@@ -1022,6 +1022,11 @@ function BillSpecTable({ rows }){
 }
 
 function BillDetailTable({ lines, sub, tax, total, note, pageHeader }){
+  // 端数調整・値引き行（minus:true）を末尾（小計の直上）に固定
+  const sortedLines = [
+    ...lines.filter(ln => !ln.minus),
+    ...lines.filter(ln => ln.minus),
+  ];
   return(
     <table style={{width:'100%',borderCollapse:'collapse',border:'2px solid #000',borderTop:'none',marginBottom:8,fontSize:19}}>
       <thead>
@@ -1039,7 +1044,7 @@ function BillDetailTable({ lines, sub, tax, total, note, pageHeader }){
         </tr>
       </thead>
       <tbody>
-        {lines.map((ln,i)=>(
+        {sortedLines.map((ln,i)=>(
           ln.rowType==='spacer'?(
             <tr key={i}><td colSpan={5} style={{border:'1px solid #888',borderLeft:'1px solid #888',borderRight:'1px solid #888',height:14,background:'#fff'}}/></tr>
           ):ln.rowType==='header'?(
@@ -1056,7 +1061,7 @@ function BillDetailTable({ lines, sub, tax, total, note, pageHeader }){
           </tr>
           )
         ))}
-        {Array.from({length:Math.max(0,15-lines.length)}).map((_,i)=>(
+        {Array.from({length:Math.max(0,15-sortedLines.length)}).map((_,i)=>(
           <tr key={'pad'+i}><td colSpan={5} style={{border:'1px solid #888',padding:'9px 13px',height:38}}>&nbsp;</td></tr>
         ))}
 
