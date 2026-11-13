@@ -5638,7 +5638,7 @@ function DocDetailModal({doc, onClose, onSaved, onEdit}){
               📄 PDF開く
             </a>
           )}
-          {onEdit&&['estimate','invoice','lease_estimate','lease_invoice','fabric_estimate','awning_estimate','pawlo_estimate','free_estimate','curtain_estimate'].includes(doc.doc_type)&&(
+          {onEdit&&['estimate','invoice','lease_estimate','lease_invoice'].includes(doc.doc_type)&&(
             <button onClick={()=>{onClose();onEdit(doc);}}
               style={{padding:'8px 20px',border:'1.5px solid #1e7a3d',borderRadius:7,background:'#e8f5ee',color:'#1e7a3d',fontSize:13,fontWeight:700,cursor:'pointer',display:'flex',alignItems:'center',gap:5}}>
               ✏️ 編集する
