@@ -6489,10 +6489,10 @@ function CustomersPage({user}){
                 {s.list.length===0?<div style={{fontSize:12,color:C.textMuted}}>この顧客の案件はまだありません。</div>:
                 <table style={{width:'100%',borderCollapse:'collapse'}}><tbody>
                   {s.list.map(p=>(<tr key={p.id}>
-                    <td style={{...td,fontWeight:700,color:C.navy,whiteSpace:'nowrap',background:'#fff'}}>{p.number}</td>
+                    <td style={{...td,fontWeight:700,color:C.navy,background:'#fff',minWidth:160}}>{p.summary}</td>
+                    <td style={{...td,color:C.textSub,whiteSpace:'nowrap',background:'#fff'}}>{p.number}</td>
                     <td style={{...td,whiteSpace:'nowrap',background:'#fff'}}>{p.inquiry_date||''}</td>
                     <td style={{...td,whiteSpace:'nowrap',background:'#fff'}}>{p.department||'テント部'}</td>
-                    <td style={{...td,background:'#fff'}}>{p.summary}</td>
                     <td style={{...td,textAlign:'right',whiteSpace:'nowrap',background:'#fff'}}>{yen(p.amount)}</td>
                     <td style={{...td,whiteSpace:'nowrap',background:'#fff'}}>{p.status}</td>
                   </tr>))}
