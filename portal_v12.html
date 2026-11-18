@@ -6291,16 +6291,8 @@ function ProjectsPage({user}){
 
       <div style={{display:'flex',gap:8,marginBottom:14,flexWrap:'wrap'}}>
         {['合計',...DEPTS].map(d=>(
-          <button key={d} onClick={()=>setDept(d)} style={{padding:'8px 22px',borderRadius:20,border:'1px solid '+(dept===d?C.navy:C.border),background:dept===d?C.navy:'#fff',color:dept===d?'#fff':C.textSub,fontSize:14,fontWeight:700,cursor:'pointer'}}>{d}</button>
+          <button key={d} onClick={()=>setDept(d)} style={{padding:'8px 22px',borderRadius:20,border:'1px solid '+(dept===d?C.navy:C.border),background:dept===d?C.navy:'#fff',color:dept===d?'#fff':C.textSub,fontSize:14,fontWeight:700,cursor:'pointer'}}>{d}（{d==='合計'?searched.length:byDept(d).length}）</button>
         ))}
-      </div>
-      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:12,marginBottom:12}}>
-        {[['テント部',byDept('テント部')],['鉄工部',byDept('鉄工部')],['合計',searched]].map(([d,list])=>(
-          <div key={d} onClick={()=>setDept(d)} style={{cursor:'pointer',background:dept===d?C.blueLight:C.surface,border:'1px solid '+(dept===d?C.blueBorder:C.border),borderRadius:12,padding:'12px 16px'}}>
-            <div style={{fontSize:12,color:C.textSub,fontWeight:700}}>{d}　{list.length}件</div>
-            <div style={{fontSize:20,fontWeight:800,color:C.navy,marginTop:2}}>{yen(sumOf(list,'amount'))}</div>
-            <div style={{fontSize:11,color:C.textMuted,marginTop:2}}>見積金額（原価 {yen(sumOf(list,'cost'))}）</div>
-          </div>))}
       </div>
 
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:12,marginBottom:16}}>
