@@ -6319,8 +6319,8 @@ function ProjectsPage({user}){
       </div>
 
       {show&&(
-        <div onClick={()=>!saving&&setShow(false)} style={{position:'fixed',inset:0,background:'rgba(15,42,92,.45)',zIndex:1000,display:'flex',alignItems:'center',justifyContent:'center',padding:16}}>
-          <div onClick={e=>e.stopPropagation()} style={{background:'#fff',borderRadius:14,width:'100%',maxWidth:560,maxHeight:'90vh',overflow:'auto',padding:24}}>
+        <div onClick={()=>!saving&&setShow(false)} style={{position:'fixed',inset:0,background:'rgba(15,42,92,.45)',zIndex:10000,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'24px 16px',overflowY:'auto'}}>
+          <div onClick={e=>e.stopPropagation()} style={{background:'#fff',borderRadius:14,width:'100%',maxWidth:560,margin:'auto',padding:24}}>
             <div style={{fontSize:18,fontWeight:800,color:C.navy,marginBottom:4}}>新規案件登録</div>
             <div style={{fontSize:12,color:C.textMuted,marginBottom:16}}>案件番号：{nextNumber()}（自動採番）</div>
             <div style={{display:'grid',gap:12}}>
