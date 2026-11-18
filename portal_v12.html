@@ -2365,10 +2365,22 @@ function TeamTodo({user}){
 }
 
 function Dashboard({setPage, activityLog, todayShiftCount=0, user}){
+  const [pj,setPj]=useState([]);
+  useEffect(()=>{supabase.from('projects').select('status,amount,cost,inquiry_date').then(({data})=>setPj(data||[]));},[]);
+  const _now=new Date();const _ym=_now.getFullYear()+'-'+String(_now.getMonth()+1).padStart(2,'0');
+  const _mon=pj.filter(r=>(r.inquiry_date||'').slice(0,7)===_ym);
+  const _amt=_mon.reduce((a,r)=>a+(Number(r.amount)||0),0);
+  const _cost=_mon.reduce((a,r)=>a+(Number(r.cost)||0),0);
+  const _gp=_amt-_cost;
+  const _yen=n=>n.toLocaleString('ja-JP');
   const stats=[
-    {label:'未対応問い合わせ',value:'-',unit:'件',sub:'案件管理機能で連携予定',
+    {label:'未対応問い合わせ',value:String(pj.filter(r=>r.status==='未対応').length),unit:'件',sub:'案件管理から集計',
      icon:<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={C.blue} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>},
+    {label:'今月の見積金額',value:_yen(_amt),unit:'円',fs:24,sub:'今月の案件 '+_mon.length+'件',icon:<span style={{fontSize:20,fontWeight:900,color:C.blue,lineHeight:1}}>¥</span>},
+    {label:'今月の原価',value:_yen(_cost),unit:'円',fs:24,sub:'案件管理の原価（仮入力）',icon:<span style={{fontSize:20,fontWeight:900,color:C.blue,lineHeight:1}}>¥</span>},
+    {label:'今月の粗利',value:_yen(_gp),unit:'円',fs:24,sub:'粗利率 '+(_amt>0?(_gp/_amt*100).toFixed(1):'0.0')+'%',icon:<span style={{fontSize:20,fontWeight:900,color:C.blue,lineHeight:1}}>¥</span>},
   ];
+
   const menuGroups=[
     {
       dept:'製作部',
@@ -2427,7 +2439,7 @@ function Dashboard({setPage, activityLog, todayShiftCount=0, user}){
             <div>
               <div style={{fontSize:11,color:C.textSub,marginBottom:4,fontWeight:500}}>{s.label}</div>
               <div style={{display:'flex',alignItems:'baseline',gap:3}}>
-                <span style={{fontSize:28,fontWeight:900,color:C.navy,lineHeight:1}}>{s.value}</span>
+                <span style={{fontSize:s.fs||28,fontWeight:900,color:C.navy,lineHeight:1}}>{s.value}</span>
                 <span style={{fontSize:13,color:C.textSub,fontWeight:500}}>{s.unit}</span>
               </div>
               <div style={{fontSize:11,color:C.textMuted,marginTop:2}}>{s.sub}</div>
