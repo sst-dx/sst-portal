@@ -6207,6 +6207,7 @@ function ProjectsPage({user}){
   const blank={department:'テント部',summary:'',customer_name:'',priority:'通常',amount:'',cost:'',hq_staff:'',notes:''};
   const [f,setF]=useState(blank);
   const [q,setQ]=useState('');
+  const [editId,setEditId]=useState(null);
 
   const load=async()=>{
     setLoading(true);
@@ -6228,8 +6229,7 @@ function ProjectsPage({user}){
   const save=async()=>{
     if(!f.summary.trim()){alert('案件概要を入力してください');return;}
     setSaving(true);
-    const rec={
-      number:nextNumber(),
+    const base={
       department:f.department,
       summary:f.summary.trim(),
       customer_name:f.customer_name.trim()||null,
@@ -6238,15 +6238,24 @@ function ProjectsPage({user}){
       cost:parseInt(f.cost,10)||0,
       hq_staff:f.hq_staff||null,
       notes:f.notes.trim()||null,
-      status:'未対応',
     };
-    const {data,error}=await supabase.from('projects').insert(rec).select().single();
+    if(editId){
+      const {data,error}=await supabase.from('projects').update(base).eq('id',editId).select().single();
+      setSaving(false);
+      if(error){alert('更新エラー: '+error.message);return;}
+      setRows(p=>p.map(x=>x.id===editId?data:x));
+      setF(blank);setEditId(null);setShow(false);
+      return;
+    }
+    const {data,error}=await supabase.from('projects').insert({...base,number:nextNumber(),status:'未対応'}).select().single();
     setSaving(false);
     if(error){alert('保存エラー: '+error.message);return;}
     setRows(p=>[data,...p]);
     setF(blank);setShow(false);
   };
 
+  const openNew=()=>{setF(blank);setEditId(null);setShow(true);};
+  const openEdit=r=>{setF({department:r.department||'テント部',summary:r.summary||'',customer_name:r.customer_name||'',priority:r.priority||'通常',amount:r.amount?String(r.amount):'',cost:r.cost?String(r.cost):'',hq_staff:r.hq_staff||'',notes:r.notes||''});setEditId(r.id);setShow(true);};
   const searched=rows.filter(r=>!q||[r.number,r.summary,r.customer_name,r.hq_staff].some(v=>(v||'').includes(q)));
   const sumOf=(list,k)=>list.reduce((s,r)=>s+(Number(r[k])||0),0);
   const byDept=d=>searched.filter(r=>(r.department||'テント部')===d);
@@ -6267,9 +6276,9 @@ function ProjectsPage({user}){
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',flexWrap:'wrap',gap:12,marginBottom:16}}>
         <div>
           <div style={{fontSize:22,fontWeight:800,color:C.navy}}>🗂️ 案件管理</div>
-          <div style={{fontSize:12,color:C.textSub,marginTop:2}}>案件の登録と一覧（フェーズ1）</div>
+          <div style={{fontSize:12,color:C.textSub,marginTop:2}}>案件の登録・編集と一覧（フェーズ1）</div>
         </div>
-        <button onClick={()=>setShow(true)} style={{padding:'10px 20px',background:C.navy,color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:700,cursor:'pointer'}}>＋ 新規案件登録</button>
+        <button onClick={openNew} style={{padding:'10px 20px',background:C.navy,color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:700,cursor:'pointer'}}>＋ 新規案件登録</button>
       </div>
 
       <div style={{display:'flex',gap:8,marginBottom:14,flexWrap:'wrap'}}>
@@ -6304,11 +6313,11 @@ function ProjectsPage({user}){
       <div style={{background:C.surface,border:'1px solid '+C.border,borderRadius:12,overflow:'auto'}}>
         <table style={{width:'100%',borderCollapse:'collapse',minWidth:980}}>
           <thead><tr>
-            {['案件番号','部門','問合せ日','案件概要','顧客','優先度','本社担当','見積金額','原価','粗利','ステータス'].map(h=><th key={h} style={{...th,textAlign:['見積金額','原価','粗利'].includes(h)?'right':'left'}}>{h}</th>)}
+            {['案件番号','部門','問合せ日','案件概要','顧客','優先度','本社担当','見積金額','原価','粗利','ステータス',''].map(h=><th key={h} style={{...th,textAlign:['見積金額','原価','粗利'].includes(h)?'right':'left'}}>{h}</th>)}
           </tr></thead>
           <tbody>
-            {loading&&<tr><td colSpan={11} style={{...td,textAlign:'center',color:C.textMuted}}>読み込み中...</td></tr>}
-            {!loading&&shown.length===0&&<tr><td colSpan={11} style={{...td,textAlign:'center',color:C.textMuted,padding:32}}>案件がありません。「＋ 新規案件登録」から追加してください。</td></tr>}
+            {loading&&<tr><td colSpan={12} style={{...td,textAlign:'center',color:C.textMuted}}>読み込み中...</td></tr>}
+            {!loading&&shown.length===0&&<tr><td colSpan={12} style={{...td,textAlign:'center',color:C.textMuted,padding:32}}>案件がありません。「＋ 新規案件登録」から追加してください。</td></tr>}
             {shown.map(r=>{
               const pr=(Number(r.amount)||0)-(Number(r.cost)||0);
               return(<tr key={r.id}>
@@ -6323,6 +6332,7 @@ function ProjectsPage({user}){
                 <td style={{...td,textAlign:'right',whiteSpace:'nowrap'}}>{yen(r.cost)}</td>
                 <td style={{...td,textAlign:'right',whiteSpace:'nowrap',fontWeight:700,color:pr>=0?C.green:C.red}}>{yen(pr)}</td>
                 <td style={td}><span style={{fontSize:12,fontWeight:700,color:'#fff',background:STATUS_COLOR[r.status]||C.textMuted,borderRadius:12,padding:'3px 10px',whiteSpace:'nowrap'}}>{r.status}</span></td>
+                <td style={td}><button onClick={()=>openEdit(r)} style={{padding:'5px 12px',border:'1px solid '+C.border,background:'#fff',borderRadius:6,fontSize:12,fontWeight:700,color:C.navy,cursor:'pointer',whiteSpace:'nowrap'}}>編集</button></td>
               </tr>);
             })}
           </tbody>
@@ -6332,18 +6342,19 @@ function ProjectsPage({user}){
             <td style={{...td,textAlign:'right',fontWeight:800,background:C.bg}}>{yen(totCost)}</td>
             <td style={{...td,textAlign:'right',fontWeight:800,background:C.bg,color:totProfit>=0?C.green:C.red}}>{yen(totProfit)}</td>
             <td style={{...td,background:C.bg}}></td>
+            <td style={{...td,background:C.bg}}></td>
           </tr></tfoot>}
         </table>
       </div>
       <div style={{marginTop:14,padding:'12px 16px',background:C.amberLight,border:'1px solid '+C.amberBorder,borderRadius:10,fontSize:12,color:C.amber}}>
-        フェーズ2で開発予定：ステータス変更・案件の編集/削除・顧客マスタ・KPI（受注率/着手率）・工程ガント・製作指示書/請求書との連携・原価の自動計算（見積の生地種類・寸法から算出）
+        フェーズ2で開発予定：ステータス変更・案件の削除・顧客マスタ・KPI（受注率/着手率）・工程ガント・製作指示書/請求書との連携・原価の自動計算（見積の生地種類・寸法から算出）
       </div>
 
       {show&&ReactDOM.createPortal(
         <div onClick={()=>!saving&&setShow(false)} style={{position:'fixed',inset:0,background:'rgba(15,42,92,.45)',zIndex:10000,display:'flex',alignItems:'flex-start',justifyContent:'center',padding:'24px 16px',overflowY:'auto'}}>
           <div onClick={e=>e.stopPropagation()} style={{background:'#fff',borderRadius:14,width:'100%',maxWidth:560,margin:'auto',padding:24}}>
-            <div style={{fontSize:18,fontWeight:800,color:C.navy,marginBottom:4}}>新規案件登録</div>
-            <div style={{fontSize:12,color:C.textMuted,marginBottom:16}}>案件番号：{nextNumber()}（自動採番）</div>
+            <div style={{fontSize:18,fontWeight:800,color:C.navy,marginBottom:4}}>{editId?'案件編集':'新規案件登録'}</div>
+            <div style={{fontSize:12,color:C.textMuted,marginBottom:16}}>案件番号：{editId?(rows.find(x=>x.id===editId)||{}).number:nextNumber()+'（自動採番）'}</div>
             <div style={{display:'grid',gap:12}}>
               <div><label style={lbl}>部門</label><div style={{display:'flex',gap:8}}>{DEPTS.map(d=><button key={d} type="button" onClick={()=>setF({...f,department:d})} style={{flex:1,padding:'9px 0',borderRadius:8,border:'1px solid '+(f.department===d?C.navy:C.border),background:f.department===d?C.navy:'#fff',color:f.department===d?'#fff':C.textSub,fontSize:14,fontWeight:700,cursor:'pointer'}}>{d}</button>)}</div></div>
               <div><label style={lbl}>案件概要 *</label><input style={inp} value={f.summary} onChange={e=>setF({...f,summary:e.target.value})} placeholder="例：〇〇店 テント張替"/></div>
@@ -6360,7 +6371,7 @@ function ProjectsPage({user}){
             </div>
             <div style={{display:'flex',justifyContent:'flex-end',gap:10,marginTop:18}}>
               <button disabled={saving} onClick={()=>setShow(false)} style={{padding:'9px 18px',border:'1px solid '+C.border,background:'#fff',borderRadius:8,fontSize:14,cursor:'pointer'}}>キャンセル</button>
-              <button disabled={saving} onClick={save} style={{padding:'9px 22px',border:'none',background:C.navy,color:'#fff',borderRadius:8,fontSize:14,fontWeight:700,cursor:'pointer'}}>{saving?'保存中...':'登録する'}</button>
+              <button disabled={saving} onClick={save} style={{padding:'9px 22px',border:'none',background:C.navy,color:'#fff',borderRadius:8,fontSize:14,fontWeight:700,cursor:'pointer'}}>{saving?'保存中...':(editId?'更新する':'登録する')}</button>
             </div>
           </div>
         </div>
