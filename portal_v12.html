@@ -6324,7 +6324,7 @@ function ProjectsPage({user}){
                 <td style={{...td,fontWeight:700,color:C.navy,whiteSpace:'nowrap'}}>{r.number}</td>
                 <td style={{...td,whiteSpace:'nowrap'}}>{r.department||'テント部'}</td>
                 <td style={{...td,whiteSpace:'nowrap'}}>{r.inquiry_date||''}</td>
-                <td style={{...td,minWidth:200}}>{r.summary}{r.notes&&<div style={{fontSize:11,color:C.textMuted,marginTop:2}}>{r.notes}</div>}</td>
+                <td style={{...td,minWidth:200}}>{r.summary}</td>
                 <td style={td}>{r.customer_name||'-'}</td>
                 <td style={{...td,fontWeight:700,color:PRI_COLOR[r.priority]||C.textSub,whiteSpace:'nowrap'}}>{r.priority}</td>
                 <td style={{...td,whiteSpace:'nowrap'}}>{r.hq_staff||'-'}</td>
