@@ -6202,7 +6202,9 @@ function ProjectsPage({user}){
   const [err,setErr]=useState('');
   const [show,setShow]=useState(false);
   const [saving,setSaving]=useState(false);
-  const blank={summary:'',customer_name:'',priority:'通常',amount:'',cost:'',hq_staff:'',notes:''};
+  const DEPTS=['テント部','鉄工部'];
+  const [dept,setDept]=useState('合計');
+  const blank={department:'テント部',summary:'',customer_name:'',priority:'通常',amount:'',cost:'',hq_staff:'',notes:''};
   const [f,setF]=useState(blank);
   const [q,setQ]=useState('');
 
@@ -6228,6 +6230,7 @@ function ProjectsPage({user}){
     setSaving(true);
     const rec={
       number:nextNumber(),
+      department:f.department,
       summary:f.summary.trim(),
       customer_name:f.customer_name.trim()||null,
       priority:f.priority,
@@ -6244,9 +6247,12 @@ function ProjectsPage({user}){
     setF(blank);setShow(false);
   };
 
-  const shown=rows.filter(r=>!q||[r.number,r.summary,r.customer_name,r.hq_staff].some(v=>(v||'').includes(q)));
-  const totAmount=shown.reduce((s,r)=>s+(Number(r.amount)||0),0);
-  const totCost=shown.reduce((s,r)=>s+(Number(r.cost)||0),0);
+  const searched=rows.filter(r=>!q||[r.number,r.summary,r.customer_name,r.hq_staff].some(v=>(v||'').includes(q)));
+  const sumOf=(list,k)=>list.reduce((s,r)=>s+(Number(r[k])||0),0);
+  const byDept=d=>searched.filter(r=>(r.department||'テント部')===d);
+  const shown=dept==='合計'?searched:byDept(dept);
+  const totAmount=sumOf(shown,'amount');
+  const totCost=sumOf(shown,'cost');
   const totProfit=totAmount-totCost;
   const rate=totAmount>0?Math.round(totProfit/totAmount*1000)/10:0;
 
@@ -6266,8 +6272,22 @@ function ProjectsPage({user}){
         <button onClick={()=>setShow(true)} style={{padding:'10px 20px',background:C.navy,color:'#fff',border:'none',borderRadius:8,fontSize:14,fontWeight:700,cursor:'pointer'}}>＋ 新規案件登録</button>
       </div>
 
+      <div style={{display:'flex',gap:8,marginBottom:14,flexWrap:'wrap'}}>
+        {['合計',...DEPTS].map(d=>(
+          <button key={d} onClick={()=>setDept(d)} style={{padding:'8px 22px',borderRadius:20,border:'1px solid '+(dept===d?C.navy:C.border),background:dept===d?C.navy:'#fff',color:dept===d?'#fff':C.textSub,fontSize:14,fontWeight:700,cursor:'pointer'}}>{d}</button>
+        ))}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:12,marginBottom:12}}>
+        {[['テント部',byDept('テント部')],['鉄工部',byDept('鉄工部')],['合計',searched]].map(([d,list])=>(
+          <div key={d} onClick={()=>setDept(d)} style={{cursor:'pointer',background:dept===d?C.blueLight:C.surface,border:'1px solid '+(dept===d?C.blueBorder:C.border),borderRadius:12,padding:'12px 16px'}}>
+            <div style={{fontSize:12,color:C.textSub,fontWeight:700}}>{d}　{list.length}件</div>
+            <div style={{fontSize:20,fontWeight:800,color:C.navy,marginTop:2}}>{yen(sumOf(list,'amount'))}</div>
+            <div style={{fontSize:11,color:C.textMuted,marginTop:2}}>見積金額（原価 {yen(sumOf(list,'cost'))}）</div>
+          </div>))}
+      </div>
+
       <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(200px,1fr))',gap:12,marginBottom:16}}>
-        {[['案件数',shown.length+' 件',C.navy],['見積金額 合計',yen(totAmount),C.blue],['原価 合計',yen(totCost),C.amber],['粗利 合計',yen(totProfit)+(totAmount>0?'（'+rate+'%）':''),totProfit>=0?C.green:C.red]].map(([l,v,c])=>(
+        {[[dept+' 案件数',shown.length+' 件',C.navy],[dept+' 見積金額',yen(totAmount),C.blue],[dept+' 原価',yen(totCost),C.amber],[dept+' 粗利',yen(totProfit)+(totAmount>0?'（'+rate+'%）':''),totProfit>=0?C.green:C.red]].map(([l,v,c])=>(
           <div key={l} style={{background:C.surface,border:'1px solid '+C.border,borderRadius:12,padding:'14px 16px'}}>
             <div style={{fontSize:12,color:C.textSub,fontWeight:700}}>{l}</div>
             <div style={{fontSize:22,fontWeight:800,color:c,marginTop:4}}>{v}</div>
@@ -6276,23 +6296,24 @@ function ProjectsPage({user}){
 
       <div style={{display:'flex',gap:8,flexWrap:'wrap',alignItems:'center',marginBottom:12}}>
         <input value={q} onChange={e=>setQ(e.target.value)} placeholder="案件番号・概要・顧客・担当で検索" style={{...inp,maxWidth:320}}/>
-        <Soon>ステータス変更</Soon><Soon>KPI・受注率</Soon><Soon>工程ガント</Soon><Soon>製作指示書連携</Soon><Soon>請求書発行</Soon>
+        <Soon>ステータス変更</Soon><Soon>KPI・受注率</Soon><Soon>工程ガント</Soon><Soon>製作指示書連携</Soon><Soon>請求書発行</Soon><Soon>原価の自動計算</Soon>
       </div>
 
       {err&&<div style={{background:C.redLight,border:'1px solid '+C.redBorder,color:C.red,padding:12,borderRadius:8,marginBottom:12,fontSize:13}}>{err}</div>}
 
       <div style={{background:C.surface,border:'1px solid '+C.border,borderRadius:12,overflow:'auto'}}>
-        <table style={{width:'100%',borderCollapse:'collapse',minWidth:900}}>
+        <table style={{width:'100%',borderCollapse:'collapse',minWidth:980}}>
           <thead><tr>
-            {['案件番号','問合せ日','案件概要','顧客','優先度','本社担当','見積金額','原価','粗利','ステータス'].map(h=><th key={h} style={{...th,textAlign:['見積金額','原価','粗利'].includes(h)?'right':'left'}}>{h}</th>)}
+            {['案件番号','部門','問合せ日','案件概要','顧客','優先度','本社担当','見積金額','原価','粗利','ステータス'].map(h=><th key={h} style={{...th,textAlign:['見積金額','原価','粗利'].includes(h)?'right':'left'}}>{h}</th>)}
           </tr></thead>
           <tbody>
-            {loading&&<tr><td colSpan={10} style={{...td,textAlign:'center',color:C.textMuted}}>読み込み中...</td></tr>}
-            {!loading&&shown.length===0&&<tr><td colSpan={10} style={{...td,textAlign:'center',color:C.textMuted,padding:32}}>案件がありません。「＋ 新規案件登録」から追加してください。</td></tr>}
+            {loading&&<tr><td colSpan={11} style={{...td,textAlign:'center',color:C.textMuted}}>読み込み中...</td></tr>}
+            {!loading&&shown.length===0&&<tr><td colSpan={11} style={{...td,textAlign:'center',color:C.textMuted,padding:32}}>案件がありません。「＋ 新規案件登録」から追加してください。</td></tr>}
             {shown.map(r=>{
               const pr=(Number(r.amount)||0)-(Number(r.cost)||0);
               return(<tr key={r.id}>
                 <td style={{...td,fontWeight:700,color:C.navy,whiteSpace:'nowrap'}}>{r.number}</td>
+                <td style={{...td,whiteSpace:'nowrap'}}>{r.department||'テント部'}</td>
                 <td style={{...td,whiteSpace:'nowrap'}}>{r.inquiry_date||''}</td>
                 <td style={{...td,minWidth:200}}>{r.summary}{r.notes&&<div style={{fontSize:11,color:C.textMuted,marginTop:2}}>{r.notes}</div>}</td>
                 <td style={td}>{r.customer_name||'-'}</td>
@@ -6306,7 +6327,7 @@ function ProjectsPage({user}){
             })}
           </tbody>
           {shown.length>0&&<tfoot><tr>
-            <td colSpan={6} style={{...td,fontWeight:800,background:C.bg}}>合計</td>
+            <td colSpan={7} style={{...td,fontWeight:800,background:C.bg}}>{dept}</td>
             <td style={{...td,textAlign:'right',fontWeight:800,background:C.bg}}>{yen(totAmount)}</td>
             <td style={{...td,textAlign:'right',fontWeight:800,background:C.bg}}>{yen(totCost)}</td>
             <td style={{...td,textAlign:'right',fontWeight:800,background:C.bg,color:totProfit>=0?C.green:C.red}}>{yen(totProfit)}</td>
@@ -6315,7 +6336,7 @@ function ProjectsPage({user}){
         </table>
       </div>
       <div style={{marginTop:14,padding:'12px 16px',background:C.amberLight,border:'1px solid '+C.amberBorder,borderRadius:10,fontSize:12,color:C.amber}}>
-        フェーズ2で開発予定：ステータス変更・案件の編集/削除・顧客マスタ・KPI（受注率/着手率）・工程ガント・製作指示書/請求書との連携・原価の内訳入力
+        フェーズ2で開発予定：ステータス変更・案件の編集/削除・顧客マスタ・KPI（受注率/着手率）・工程ガント・製作指示書/請求書との連携・原価の自動計算（見積の生地種類・寸法から算出）
       </div>
 
       {show&&ReactDOM.createPortal(
@@ -6324,6 +6345,7 @@ function ProjectsPage({user}){
             <div style={{fontSize:18,fontWeight:800,color:C.navy,marginBottom:4}}>新規案件登録</div>
             <div style={{fontSize:12,color:C.textMuted,marginBottom:16}}>案件番号：{nextNumber()}（自動採番）</div>
             <div style={{display:'grid',gap:12}}>
+              <div><label style={lbl}>部門</label><div style={{display:'flex',gap:8}}>{DEPTS.map(d=><button key={d} type="button" onClick={()=>setF({...f,department:d})} style={{flex:1,padding:'9px 0',borderRadius:8,border:'1px solid '+(f.department===d?C.navy:C.border),background:f.department===d?C.navy:'#fff',color:f.department===d?'#fff':C.textSub,fontSize:14,fontWeight:700,cursor:'pointer'}}>{d}</button>)}</div></div>
               <div><label style={lbl}>案件概要 *</label><input style={inp} value={f.summary} onChange={e=>setF({...f,summary:e.target.value})} placeholder="例：〇〇店 テント張替"/></div>
               <div><label style={lbl}>顧客名</label><input style={inp} value={f.customer_name} onChange={e=>setF({...f,customer_name:e.target.value})}/></div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
@@ -6332,7 +6354,7 @@ function ProjectsPage({user}){
               </div>
               <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}}>
                 <div><label style={lbl}>見積金額（円）</label><input style={inp} inputMode="numeric" value={f.amount} onChange={e=>setF({...f,amount:e.target.value.replace(/[^0-9]/g,'')})}/></div>
-                <div><label style={lbl}>原価（円）</label><input style={inp} inputMode="numeric" value={f.cost} onChange={e=>setF({...f,cost:e.target.value.replace(/[^0-9]/g,'')})}/></div>
+                <div><label style={lbl}>原価（円）※仮入力</label><input style={inp} inputMode="numeric" value={f.cost} onChange={e=>setF({...f,cost:e.target.value.replace(/[^0-9]/g,'')})}/></div>
               </div>
               <div><label style={lbl}>備考</label><textarea style={{...inp,minHeight:60}} value={f.notes} onChange={e=>setF({...f,notes:e.target.value})}/></div>
             </div>
